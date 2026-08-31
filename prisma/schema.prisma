@@ -1,14 +1,13 @@
-// Prisma Schema for LynkDigital CRM
-// Local SQLite configuration for zero-setup development
-// For Supabase PostgreSQL, see prisma/schema.postgresql.prisma
+// Prisma Schema for LynkDigital CRM - Supabase PostgreSQL Production
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
