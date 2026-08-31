@@ -43,10 +43,10 @@ export async function POST(request: Request) {
     });
 
     return response;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Login API error:", error);
     return NextResponse.json(
-      { error: "Internal server error during authentication" },
+      { error: error?.message || "Internal server error during authentication" },
       { status: 500 }
     );
   }
