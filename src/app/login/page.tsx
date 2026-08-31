@@ -23,10 +23,10 @@ export default function LoginPage() {
 
   const demoAccounts = [
     {
-      name: "Alex Morgan",
+      name: "Roma Devadhar",
       role: "ADMIN",
       designation: "Managing Director (Admin)",
-      email: "alex@lynkdigital.com",
+      email: "romadevadhar@lynkdigital.co.in",
       icon: Shield,
       badgeColor: "bg-blue-500/10 text-blue-400 border-blue-500/20",
     },
