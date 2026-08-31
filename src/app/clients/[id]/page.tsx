@@ -110,7 +110,6 @@ export default function ClientDetailPage() {
 
   const teamAssignments = client.teamAssignments || [];
   const contentCalendars = client.contentCalendars || [];
-  const approvals = client.approvals || [];
 
   return (
     <AppShell

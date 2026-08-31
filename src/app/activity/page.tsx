@@ -46,7 +46,6 @@ export default function ActivityPage() {
     { label: "All Audit Events", value: "ALL" },
     { label: "Clients", value: "CLIENT" },
     { label: "Calendars", value: "CALENDAR" },
-    { label: "Approvals", value: "APPROVAL" },
     { label: "Leaves", value: "LEAVE" },
     { label: "Announcements", value: "ANNOUNCEMENT" },
   ];
@@ -57,8 +56,6 @@ export default function ActivityPage() {
         return <Building2 className="w-4 h-4 text-blue-400" />;
       case "CALENDAR":
         return <CalendarDays className="w-4 h-4 text-emerald-400" />;
-      case "APPROVAL":
-        return <CheckCircle2 className="w-4 h-4 text-amber-400" />;
       case "LEAVE":
         return <PlaneTakeoff className="w-4 h-4 text-violet-400" />;
       case "ANNOUNCEMENT":

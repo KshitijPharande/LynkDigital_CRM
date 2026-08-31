@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   Building2,
   CalendarDays,
-  CheckCircle2,
   Users,
   PlaneTakeoff,
   Megaphone,
@@ -50,13 +49,6 @@ export function Sidebar({ currentUser, onLogout }: SidebarProps) {
       icon: CalendarDays,
       roles: ["ADMIN", "EMPLOYEE"],
       badge: "Sheets",
-    },
-    {
-      name: "Client Approvals",
-      href: "/approvals",
-      icon: CheckCircle2,
-      roles: ["ADMIN", "EMPLOYEE"],
-      badge: "Tracker",
     },
     {
       name: "Team Directory",

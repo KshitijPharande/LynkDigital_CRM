@@ -5,18 +5,13 @@ import { AppShell } from "@/components/layout/AppShell";
 import {
   Building2,
   CalendarDays,
-  CheckCircle2,
   PlaneTakeoff,
   ExternalLink,
   ArrowUpRight,
   Sparkles,
-  AlertCircle,
-  TrendingUp,
-  Clock,
-  ChevronRight,
-  Plus,
   Users,
   Megaphone,
+  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
@@ -27,27 +22,22 @@ export default async function DashboardPage() {
   const currentUser = await getCurrentUser();
   const isAdmin = currentUser?.role === "ADMIN";
 
-  // Fetch data dynamically based on user role
+  // Fetch real data from database
   const [
     totalClients,
     activeClients,
     totalCalendars,
-    pendingApprovalsCount,
+    totalTeamCount,
     pendingLeavesCount,
     announcements,
     clientsList,
-    approvalsList,
     pendingLeavesList,
     userAssignedClients,
   ] = await Promise.all([
     prisma.client.count(),
     prisma.client.count({ where: { status: "ACTIVE" } }),
     prisma.contentCalendar.count(),
-    prisma.clientApproval.count({
-      where: {
-        status: { in: ["SENT_TO_CLIENT", "CHANGES_REQUESTED"] },
-      },
-    }),
+    prisma.user.count({ where: { status: "ACTIVE" } }),
     prisma.leaveRequest.count({ where: { status: "PENDING" } }),
     prisma.announcement.findMany({
       orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
@@ -55,7 +45,7 @@ export default async function DashboardPage() {
       include: { author: true },
     }),
     prisma.client.findMany({
-      take: 4,
+      take: 6,
       orderBy: { createdAt: "desc" },
       include: {
         accountManager: true,
@@ -64,11 +54,6 @@ export default async function DashboardPage() {
           orderBy: { createdAt: "desc" },
         },
       },
-    }),
-    prisma.clientApproval.findMany({
-      take: 5,
-      orderBy: { sentDate: "desc" },
-      include: { client: true },
     }),
     prisma.leaveRequest.findMany({
       where: { status: "PENDING" },
@@ -104,22 +89,22 @@ export default async function DashboardPage() {
       border: "border-blue-500/20",
     },
     {
-      label: "Pending Approvals",
-      value: pendingApprovalsCount,
-      subtext: "Awaiting client response",
-      icon: CheckCircle2,
-      color: "text-amber-400",
-      bg: "bg-amber-500/10",
-      border: "border-amber-500/20",
-    },
-    {
-      label: "Tracked Calendars",
+      label: "Content Calendars",
       value: totalCalendars,
-      subtext: "Active Google Sheets",
+      subtext: "Tracked Google Sheets",
       icon: CalendarDays,
       color: "text-emerald-400",
       bg: "bg-emerald-500/10",
       border: "border-emerald-500/20",
+    },
+    {
+      label: "Active Team Members",
+      value: totalTeamCount,
+      subtext: "Design, SMM & Video leads",
+      icon: Users,
+      color: "text-brand-400",
+      bg: "bg-brand-500/10",
+      border: "border-brand-500/20",
     },
     {
       label: "Pending Leaves",
@@ -143,22 +128,22 @@ export default async function DashboardPage() {
       border: "border-emerald-500/20",
     },
     {
-      label: "Deliverables in Review",
-      value: pendingApprovalsCount,
-      subtext: "Across agency clients",
-      icon: CheckCircle2,
-      color: "text-amber-400",
-      bg: "bg-amber-500/10",
-      border: "border-amber-500/20",
-    },
-    {
-      label: "Active Content Calendars",
+      label: "Content Calendars",
       value: totalCalendars,
-      subtext: "Live Google Sheets directory",
+      subtext: "Active Google Sheets directory",
       icon: CalendarDays,
       color: "text-blue-400",
       bg: "bg-blue-500/10",
       border: "border-blue-500/20",
+    },
+    {
+      label: "Team Directory",
+      value: totalTeamCount,
+      subtext: "Agency colleagues",
+      icon: Users,
+      color: "text-brand-400",
+      bg: "bg-brand-500/10",
+      border: "border-brand-500/20",
     },
     {
       label: "Leave Applications",
@@ -176,7 +161,7 @@ export default async function DashboardPage() {
       title={isAdmin ? "Agency Command Center" : `Welcome back, ${currentUser?.name || "Team Member"}`}
       subtitle={
         isAdmin
-          ? "Operational overview, active client accounts, and pending approvals"
+          ? "Operational overview, active client accounts, and Google Workspace assets"
           : `Personalized Hub • ${currentUser?.designation || "Creative Team"}`
       }
       currentUser={currentUser}
@@ -245,30 +230,37 @@ export default async function DashboardPage() {
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column: Clients & Calendars */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Active Clients / My Assigned Accounts */}
-            <div className="glass-panel rounded-2xl border border-dark-border p-6 flex flex-col">
-              <div className="flex items-center justify-between mb-5">
-                <div>
-                  <h3 className="text-sm font-semibold text-white tracking-tight flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-brand-400" />
-                    {isAdmin ? "Active Agency Clients & Assets" : "My Assigned Client Accounts"}
-                  </h3>
-                  <p className="text-xs text-dark-muted">
-                    Instant access to Google Sheet content calendars and master Drive folders
-                  </p>
-                </div>
-                <Link
-                  href="/clients"
-                  className="text-xs text-brand-400 hover:text-brand-300 font-medium flex items-center gap-1"
-                >
-                  View All <ChevronRight className="w-3.5 h-3.5" />
-                </Link>
+          {/* Active Clients / My Assigned Accounts */}
+          <div className="lg:col-span-2 glass-panel rounded-2xl border border-dark-border p-6 flex flex-col">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h3 className="text-sm font-semibold text-white tracking-tight flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-brand-400" />
+                  {isAdmin ? "Active Agency Clients & Assets" : "My Assigned Client Accounts"}
+                </h3>
+                <p className="text-xs text-dark-muted">
+                  Instant access to Google Sheet content calendars and master Drive folders
+                </p>
               </div>
+              <Link
+                href="/clients"
+                className="text-xs text-brand-400 hover:text-brand-300 font-medium flex items-center gap-1"
+              >
+                View All <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
 
-              <div className="space-y-3">
-                {(isAdmin
+            <div className="space-y-3">
+              {(isAdmin
+                ? clientsList
+                : userAssignedClients.map((a) => a.client)
+              ).length === 0 ? (
+                <div className="p-8 text-center rounded-xl bg-dark-bg/50 border border-dark-border">
+                  <Building2 className="w-6 h-6 text-dark-subtle mx-auto mb-2" />
+                  <p className="text-xs text-dark-muted">No client accounts yet. Create your first client profile.</p>
+                </div>
+              ) : (
+                (isAdmin
                   ? clientsList
                   : userAssignedClients.map((a) => a.client)
                 ).map((client) => {
@@ -333,20 +325,26 @@ export default async function DashboardPage() {
                       </div>
                     </div>
                   );
-                })}
-              </div>
+                })
+              )}
             </div>
+          </div>
 
-            {/* Admin Quick Action Hub */}
-            {isAdmin && (
-              <div className="glass-panel p-5 rounded-2xl border border-dark-border grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {/* Right Column: Quick Actions & Pending Leave Review Queue */}
+          <div className="space-y-6">
+            {/* Quick Navigation Hub */}
+            <div className="glass-panel p-6 rounded-2xl border border-dark-border space-y-3">
+              <h3 className="text-sm font-semibold text-white tracking-tight mb-2">
+                Quick Shortcuts
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
                 <Link
                   href="/clients"
                   className="p-3 rounded-xl bg-dark-bg/60 hover:bg-dark-border/40 border border-dark-border text-center group transition-all"
                 >
                   <Building2 className="w-5 h-5 text-brand-400 mx-auto mb-1 group-hover:scale-110 transition-transform" />
-                  <p className="text-xs font-semibold text-white">Client Roster</p>
-                  <p className="text-[10px] text-dark-muted">Manage accounts</p>
+                  <p className="text-xs font-semibold text-white">Clients</p>
+                  <p className="text-[10px] text-dark-muted">Roster & Drive</p>
                 </Link>
 
                 <Link
@@ -354,107 +352,32 @@ export default async function DashboardPage() {
                   className="p-3 rounded-xl bg-dark-bg/60 hover:bg-dark-border/40 border border-dark-border text-center group transition-all"
                 >
                   <CalendarDays className="w-5 h-5 text-emerald-400 mx-auto mb-1 group-hover:scale-110 transition-transform" />
-                  <p className="text-xs font-semibold text-white">Google Calendars</p>
-                  <p className="text-[10px] text-dark-muted">Sheet directory</p>
+                  <p className="text-xs font-semibold text-white">Calendars</p>
+                  <p className="text-[10px] text-dark-muted">Google Sheets</p>
                 </Link>
 
                 <Link
-                  href="/approvals"
+                  href="/team"
                   className="p-3 rounded-xl bg-dark-bg/60 hover:bg-dark-border/40 border border-dark-border text-center group transition-all"
                 >
-                  <CheckCircle2 className="w-5 h-5 text-amber-400 mx-auto mb-1 group-hover:scale-110 transition-transform" />
-                  <p className="text-xs font-semibold text-white">Approvals</p>
-                  <p className="text-[10px] text-dark-muted">Deliverable pipeline</p>
+                  <Users className="w-5 h-5 text-violet-400 mx-auto mb-1 group-hover:scale-110 transition-transform" />
+                  <p className="text-xs font-semibold text-white">Team</p>
+                  <p className="text-[10px] text-dark-muted">Directory</p>
                 </Link>
 
                 <Link
                   href="/announcements"
                   className="p-3 rounded-xl bg-dark-bg/60 hover:bg-dark-border/40 border border-dark-border text-center group transition-all"
                 >
-                  <Megaphone className="w-5 h-5 text-violet-400 mx-auto mb-1 group-hover:scale-110 transition-transform" />
-                  <p className="text-xs font-semibold text-white">Broadcast</p>
-                  <p className="text-[10px] text-dark-muted">Post notice</p>
-                </Link>
-              </div>
-            )}
-          </div>
-
-          {/* Right Column: Approvals & Leave Review Queue */}
-          <div className="space-y-6">
-            {/* Approvals Tracker Widget */}
-            <div className="glass-panel rounded-2xl border border-dark-border p-6 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-amber-400" />
-                    Pending Approvals
-                  </h3>
-                  <Link
-                    href="/approvals"
-                    className="text-xs text-brand-400 hover:text-brand-300 font-medium"
-                  >
-                    View All
-                  </Link>
-                </div>
-
-                <div className="space-y-3">
-                  {approvalsList.slice(0, 3).map((item) => (
-                    <div
-                      key={item.id}
-                      className="p-3 rounded-xl bg-dark-bg/60 border border-dark-border/80 space-y-1.5"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] font-semibold text-brand-400 uppercase tracking-wider truncate">
-                          {item.client.brandName}
-                        </span>
-                        <span
-                          className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
-                            item.status === "APPROVED"
-                              ? "bg-emerald-500/10 text-emerald-400"
-                              : "bg-amber-500/10 text-amber-400"
-                          }`}
-                        >
-                          {item.status.replace(/_/g, " ")}
-                        </span>
-                      </div>
-
-                      <p className="text-xs font-medium text-white line-clamp-1">
-                        {item.deliverableName}
-                      </p>
-
-                      <div className="flex items-center justify-between text-[11px] text-dark-muted pt-1 border-t border-dark-border/50">
-                        <span className="text-[10px]">
-                          Sent {formatDate(item.sentDate)}
-                        </span>
-                        {item.previewUrl && (
-                          <a
-                            href={item.previewUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-brand-400 hover:underline flex items-center gap-1 text-[10px]"
-                          >
-                            Preview <ExternalLink className="w-2.5 h-2.5" />
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="pt-4 mt-4 border-t border-dark-border">
-                <Link
-                  href="/approvals"
-                  className="w-full py-2 rounded-xl bg-dark-border/50 hover:bg-dark-border text-xs font-medium text-gray-300 hover:text-white flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <span>Open Approval Pipeline</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
+                  <Megaphone className="w-5 h-5 text-amber-400 mx-auto mb-1 group-hover:scale-110 transition-transform" />
+                  <p className="text-xs font-semibold text-white">Noticeboard</p>
+                  <p className="text-[10px] text-dark-muted">Company news</p>
                 </Link>
               </div>
             </div>
 
             {/* Pending Leave Requests for Admin */}
-            {isAdmin && pendingLeavesList.length > 0 && (
+            {isAdmin && (
               <div className="glass-panel rounded-2xl border border-violet-500/20 p-5 bg-gradient-to-b from-violet-500/5 to-transparent">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold text-white flex items-center gap-2">
@@ -469,30 +392,34 @@ export default async function DashboardPage() {
                   </Link>
                 </div>
 
-                <div className="space-y-2">
-                  {pendingLeavesList.map((leave) => (
-                    <div
-                      key={leave.id}
-                      className="p-3 rounded-xl bg-dark-bg/70 border border-dark-border/80 flex items-center justify-between"
-                    >
-                      <div>
-                        <p className="text-xs font-semibold text-white">
-                          {leave.user.name}
-                        </p>
-                        <p className="text-[10px] text-dark-muted">
-                          {leave.leaveType} • {leave.daysCount} day(s) from{" "}
-                          {formatDate(leave.startDate)}
-                        </p>
-                      </div>
-                      <Link
-                        href="/leaves"
-                        className="px-2.5 py-1 rounded-lg bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 text-xs font-semibold"
+                {pendingLeavesList.length === 0 ? (
+                  <p className="text-xs text-dark-muted italic py-2">No pending leave applications</p>
+                ) : (
+                  <div className="space-y-2">
+                    {pendingLeavesList.map((leave) => (
+                      <div
+                        key={leave.id}
+                        className="p-3 rounded-xl bg-dark-bg/70 border border-dark-border/80 flex items-center justify-between"
                       >
-                        Review
-                      </Link>
-                    </div>
-                  ))}
-                </div>
+                        <div>
+                          <p className="text-xs font-semibold text-white">
+                            {leave.user.name}
+                          </p>
+                          <p className="text-[10px] text-dark-muted">
+                            {leave.leaveType} • {leave.daysCount} day(s) from{" "}
+                            {formatDate(leave.startDate)}
+                          </p>
+                        </div>
+                        <Link
+                          href="/leaves"
+                          className="px-2.5 py-1 rounded-lg bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 text-xs font-semibold"
+                        >
+                          Review
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

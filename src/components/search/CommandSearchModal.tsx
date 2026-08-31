@@ -6,7 +6,6 @@ import {
   Search,
   Building2,
   CalendarDays,
-  CheckCircle2,
   Users,
   X,
   ExternalLink,
@@ -23,7 +22,6 @@ export function CommandSearchModal({ isOpen, onClose }: CommandSearchModalProps)
   const [query, setQuery] = useState("");
   const [clients, setClients] = useState<any[]>([]);
   const [calendars, setCalendars] = useState<any[]>([]);
-  const [approvals, setApprovals] = useState<any[]>([]);
   const [team, setTeam] = useState<any[]>([]);
 
   useEffect(() => {
@@ -39,11 +37,6 @@ export function CommandSearchModal({ isOpen, onClose }: CommandSearchModalProps)
         .then((data) => setCalendars(data.calendars || []))
         .catch((e) => console.error(e));
 
-      fetch("/api/approvals")
-        .then((res) => (res.ok ? res.json() : { approvals: [] }))
-        .then((data) => setApprovals(data.approvals || []))
-        .catch((e) => console.error(e));
-
       fetch("/api/team")
         .then((res) => (res.ok ? res.json() : { users: [] }))
         .then((data) => setTeam(data.users || []))
@@ -55,8 +48,7 @@ export function CommandSearchModal({ isOpen, onClose }: CommandSearchModalProps)
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault();
-        if (isOpen) onClose();
-        else onClose(); // parent handles toggle
+        onClose();
       }
       if (e.key === "Escape" && isOpen) {
         onClose();
@@ -86,14 +78,6 @@ export function CommandSearchModal({ isOpen, onClose }: CommandSearchModalProps)
       )
     : calendars.slice(0, 3);
 
-  const matchingApprovals = q
-    ? approvals.filter(
-        (a) =>
-          a.deliverableName.toLowerCase().includes(q) ||
-          a.client.brandName.toLowerCase().includes(q)
-      )
-    : approvals.slice(0, 3);
-
   const matchingTeam = q
     ? team.filter(
         (u) =>
@@ -119,7 +103,7 @@ export function CommandSearchModal({ isOpen, onClose }: CommandSearchModalProps)
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Type to search clients, sheets, deliverables, team..."
+            placeholder="Search clients, content calendars, team directory..."
             className="w-full bg-transparent text-sm text-white placeholder-dark-subtle focus:outline-none"
           />
           <button
@@ -194,37 +178,6 @@ export function CommandSearchModal({ isOpen, onClose }: CommandSearchModalProps)
                     >
                       Open Sheet <ExternalLink className="w-3 h-3" />
                     </a>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Approvals Section */}
-          {matchingApprovals.length > 0 && (
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-dark-subtle block mb-1.5 px-2">
-                Deliverable Approvals
-              </span>
-              <div className="space-y-1">
-                {matchingApprovals.map((app) => (
-                  <div
-                    key={app.id}
-                    onClick={() => handleSelect("/approvals")}
-                    className="p-2.5 rounded-xl bg-dark-bg/60 hover:bg-dark-border/50 border border-dark-border/50 flex items-center justify-between cursor-pointer transition-all"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <CheckCircle2 className="w-4 h-4 text-amber-400" />
-                      <div>
-                        <span className="font-semibold text-white">
-                          {app.deliverableName}
-                        </span>
-                        <span className="text-dark-muted ml-2 text-[11px]">
-                          {app.client.brandName} • {app.status}
-                        </span>
-                      </div>
-                    </div>
-                    <ArrowRight className="w-3 h-3 text-dark-subtle" />
                   </div>
                 ))}
               </div>

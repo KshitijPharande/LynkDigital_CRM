@@ -34,9 +34,6 @@ export async function GET(
         contentCalendars: {
           orderBy: [{ year: "desc" }, { createdAt: "desc" }],
         },
-        approvals: {
-          orderBy: { sentDate: "desc" },
-        },
       },
     });
 

@@ -14,14 +14,6 @@ export interface CurrentUser {
 export type ClientStatus = "ACTIVE" | "ON_HOLD" | "COMPLETED" | "DROPPED";
 export type PriorityLevel = "LOW" | "MEDIUM" | "HIGH";
 
-export type ApprovalStatus =
-  | "DRAFT"
-  | "SENT_TO_CLIENT"
-  | "CHANGES_REQUESTED"
-  | "APPROVED"
-  | "SCHEDULED"
-  | "PUBLISHED";
-
 export type CalendarStatus =
   | "NOT_STARTED"
   | "IN_PROGRESS"

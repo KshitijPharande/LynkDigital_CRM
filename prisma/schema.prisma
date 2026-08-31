@@ -65,7 +65,6 @@ model Client {
   // Relations
   teamAssignments    ClientAssignment[]
   contentCalendars   ContentCalendar[]
-  approvals          ClientApproval[]
 
   @@index([status])
   @@index([priority])
@@ -96,23 +95,6 @@ model ContentCalendar {
   approvalStatus  String   @default("PENDING")     // PENDING | APPROVED | CHANGES_REQUESTED
   nextDeadline    DateTime?
   lastUpdatedDate DateTime @default(now())
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  @@index([clientId])
-  @@index([status])
-}
-
-model ClientApproval {
-  id              String   @id @default(cuid())
-  clientId        String
-  client          Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  deliverableName String   // e.g., "Instagram Reel 03 - Product Teaser"
-  deliverableType String   @default("Reel") // Reel | Carousel | Static Post | Ad Banner | Copy Draft | Video
-  sentDate        DateTime @default(now())
-  status          String   @default("SENT_TO_CLIENT") // DRAFT | SENT_TO_CLIENT | CHANGES_REQUESTED | APPROVED | SCHEDULED | PUBLISHED
-  previewUrl      String?  // Google Drive / Sheet / Figma link
-  notes           String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -157,8 +139,8 @@ model Announcement {
 
 model ActivityLog {
   id         String   @id @default(cuid())
-  action     String   // e.g., CLIENT_CREATED, CALENDAR_UPDATED, APPROVAL_STATUS_CHANGED, LEAVE_REVIEWED
-  entityType String   // CLIENT | CALENDAR | APPROVAL | LEAVE | ANNOUNCEMENT
+  action     String   // e.g., CLIENT_CREATED, CALENDAR_UPDATED, LEAVE_REVIEWED
+  entityType String   // CLIENT | CALENDAR | LEAVE | ANNOUNCEMENT
   entityId   String?
   details    String
   userId     String?
