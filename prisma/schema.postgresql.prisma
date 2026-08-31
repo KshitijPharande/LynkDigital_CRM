@@ -1,0 +1,171 @@
+// Prisma Schema for LynkDigital CRM - Supabase Production
+// Connect to Supabase PostgreSQL Database
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id                 String             @id @default(cuid())
+  email              String             @unique
+  passwordHash       String
+  name               String
+  role               String             @default("EMPLOYEE") // ADMIN | EMPLOYEE
+  designation        String             @default("Team Member")
+  department         String             @default("General")
+  phone              String?
+  avatar             String?
+  status             String             @default("ACTIVE") // ACTIVE | INACTIVE
+  joiningDate        DateTime           @default(now())
+  reportingManagerId String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  // Relations
+  managedClients     Client[]           @relation("AccountManager")
+  clientAssignments  ClientAssignment[]
+  leaveRequests      LeaveRequest[]     @relation("UserLeaves")
+  reviewedLeaves     LeaveRequest[]     @relation("AdminReviewedLeaves")
+  announcements      Announcement[]
+  activityLogs       ActivityLog[]
+
+  @@index([role])
+  @@index([status])
+}
+
+model Client {
+  id                 String             @id @default(cuid())
+  brandName          String
+  industry           String
+  contactPerson      String
+  contactEmail       String
+  contactPhone       String
+  accountManagerId   String?
+  accountManager     User?              @relation("AccountManager", fields: [accountManagerId], references: [id], onDelete: SetNull)
+  status             String             @default("ACTIVE") // ACTIVE | ON_HOLD | COMPLETED | DROPPED
+  priority           String             @default("MEDIUM") // LOW | MEDIUM | HIGH
+  services           String             @default("Social Media Marketing")
+  startDate          DateTime           @default(now())
+  internalNotes      String?
+  
+  // Google Workspace & External Asset Links
+  googleDriveFolder  String?
+  brandGuidelinesUrl String?
+  clientBriefUrl     String?
+  campaignDocsUrl    String?
+
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  // Relations
+  teamAssignments    ClientAssignment[]
+  contentCalendars   ContentCalendar[]
+  approvals          ClientApproval[]
+
+  @@index([status])
+  @@index([priority])
+}
+
+model ClientAssignment {
+  id         String   @id @default(cuid())
+  clientId   String
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       String   @default("MEMBER") // ACCOUNT_MANAGER | SOCIAL_MEDIA_MANAGER | DESIGNER | VIDEO_EDITOR | COPYWRITER | MEMBER
+  assignedAt DateTime @default(now())
+
+  @@unique([clientId, userId, role])
+  @@index([clientId])
+  @@index([userId])
+}
+
+model ContentCalendar {
+  id              String   @id @default(cuid())
+  clientId        String
+  client          Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  month           String   // e.g., "September 2026"
+  year            Int      @default(2026)
+  googleSheetUrl  String
+  status          String   @default("NOT_STARTED") // NOT_STARTED | IN_PROGRESS | APPROVED | COMPLETED
+  approvalStatus  String   @default("PENDING")     // PENDING | APPROVED | CHANGES_REQUESTED
+  nextDeadline    DateTime?
+  lastUpdatedDate DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([status])
+}
+
+model ClientApproval {
+  id              String   @id @default(cuid())
+  clientId        String
+  client          Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  deliverableName String   // e.g., "Instagram Reel 03 - Product Teaser"
+  deliverableType String   @default("Reel") // Reel | Carousel | Static Post | Ad Banner | Copy Draft | Video
+  sentDate        DateTime @default(now())
+  status          String   @default("SENT_TO_CLIENT") // DRAFT | SENT_TO_CLIENT | CHANGES_REQUESTED | APPROVED | SCHEDULED | PUBLISHED
+  previewUrl      String?  // Google Drive / Sheet / Figma link
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([status])
+}
+
+model LeaveRequest {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation("UserLeaves", fields: [userId], references: [id], onDelete: Cascade)
+  leaveType    String    // CASUAL | SICK | EMERGENCY | HALF_DAY | WFH
+  startDate    DateTime
+  endDate      DateTime
+  daysCount    Float     @default(1.0)
+  reason       String
+  status       String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  adminComment String?
+  reviewedById String?
+  reviewedBy   User?     @relation("AdminReviewedLeaves", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  priority  String   @default("NORMAL") // NORMAL | HIGH | URGENT
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([priority])
+  @@index([createdAt])
+}
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  action     String   // e.g., CLIENT_CREATED, CALENDAR_UPDATED, APPROVAL_STATUS_CHANGED, LEAVE_REVIEWED
+  entityType String   // CLIENT | CALENDAR | APPROVAL | LEAVE | ANNOUNCEMENT
+  entityId   String?
+  details    String
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt  DateTime @default(now())
+
+  @@index([entityType])
+  @@index([createdAt])
+}
