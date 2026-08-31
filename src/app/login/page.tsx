@@ -25,34 +25,10 @@ export default function LoginPage() {
     {
       name: "Roma Devadhar",
       role: "ADMIN",
-      designation: "Managing Director (Admin)",
+      designation: "Managing Director",
       email: "romadevadhar@lynkdigital.co.in",
       icon: Shield,
       badgeColor: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-    },
-    {
-      name: "Sarah Chen",
-      role: "EMPLOYEE",
-      designation: "Lead Social Media Strategist",
-      email: "sarah.chen@lynkdigital.com",
-      icon: Sparkles,
-      badgeColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-    },
-    {
-      name: "David Kim",
-      role: "EMPLOYEE",
-      designation: "Senior Graphic Designer",
-      email: "david.kim@lynkdigital.com",
-      icon: Palette,
-      badgeColor: "bg-purple-500/10 text-purple-400 border-purple-500/20",
-    },
-    {
-      name: "Liam Rossi",
-      role: "EMPLOYEE",
-      designation: "Video Editor & Motion Lead",
-      email: "liam.rossi@lynkdigital.com",
-      icon: Video,
-      badgeColor: "bg-amber-500/10 text-amber-400 border-amber-500/20",
     },
   ];
 

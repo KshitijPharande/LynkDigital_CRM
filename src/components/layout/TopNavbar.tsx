@@ -63,57 +63,17 @@ export function TopNavbar({
 
         {/* Right Controls & Quick Actions */}
         <div className="flex items-center gap-3">
-          {/* Role Quick Switcher for testing/demo */}
-          {onSwitchUser && (
-            <div className="relative">
-              <button
-                onClick={() => setShowRoleSwitcher(!showRoleSwitcher)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-dark-card border border-dark-border text-xs text-gray-300 hover:text-white hover:border-dark-borderLight transition-all"
-              >
-                {isAdmin ? (
-                  <Shield className="w-3.5 h-3.5 text-brand-400" />
-                ) : (
-                  <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
-                )}
-                <span className="font-medium">
-                  {isAdmin ? "Admin View" : "Employee View"}
-                </span>
-                <ChevronDown className="w-3 h-3 text-dark-muted" />
-              </button>
-
-              {showRoleSwitcher && (
-                <div className="absolute right-0 mt-2 w-48 bg-dark-card border border-dark-border rounded-xl shadow-glass py-1.5 z-50">
-                  <div className="px-3 py-1.5 text-[10px] uppercase font-bold text-dark-subtle border-b border-dark-border">
-                    Switch Persona Demo
-                  </div>
-                  <button
-                    onClick={() => {
-                      onSwitchUser("ADMIN");
-                      setShowRoleSwitcher(false);
-                    }}
-                    className="w-full px-3 py-2 text-left text-xs text-gray-200 hover:bg-dark-border/50 flex items-center gap-2"
-                  >
-                    <Shield className="w-3.5 h-3.5 text-brand-400" />
-                    <div>
-                      <p className="font-semibold text-white">Alex Morgan (Admin)</p>
-                      <p className="text-[10px] text-dark-muted">Full Agency Control</p>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => {
-                      onSwitchUser("EMPLOYEE");
-                      setShowRoleSwitcher(false);
-                    }}
-                    className="w-full px-3 py-2 text-left text-xs text-gray-200 hover:bg-dark-border/50 flex items-center gap-2"
-                  >
-                    <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
-                    <div>
-                      <p className="font-semibold text-white">Sarah Chen (SMM)</p>
-                      <p className="text-[10px] text-dark-muted">Assigned Team View</p>
-                    </div>
-                  </button>
-                </div>
+          {/* User Role Badge */}
+          {currentUser && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-dark-card border border-dark-border text-xs text-gray-300">
+              {isAdmin ? (
+                <Shield className="w-3.5 h-3.5 text-brand-400" />
+              ) : (
+                <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
               )}
+              <span className="font-medium">
+                {isAdmin ? "Administrator" : "Team Member"}
+              </span>
             </div>
           )}
 
