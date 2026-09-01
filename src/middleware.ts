@@ -3,24 +3,43 @@ import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "lynkdigital-crm-jwt-secret-key-32-chars-long-secure"
+  process.env.JWT_SECRET || "lynkdigital-crm-super-secure-production-jwt-key-2026"
 );
 
 const COOKIE_NAME = "lynk_session_token";
 
+// Public paths that do NOT require authentication
+const PUBLIC_PATHS = ["/login", "/api/auth/login"];
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow static files, api routes, and next internals
+  // 1. Allow Next.js static assets and favicon
   if (
     pathname.startsWith("/_next") ||
-    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/static") ||
     pathname.includes(".") ||
     pathname === "/favicon.ico"
   ) {
     return NextResponse.next();
   }
 
+  // 2. Allow explicitly public endpoints
+  if (PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(path))) {
+    // If user is already authenticated and visits /login, redirect to /dashboard
+    const token = request.cookies.get(COOKIE_NAME)?.value;
+    if (token && pathname === "/login") {
+      try {
+        await jwtVerify(token, JWT_SECRET);
+        return NextResponse.redirect(new URL("/dashboard", request.url));
+      } catch {
+        // Token invalid, allow login page
+      }
+    }
+    return NextResponse.next();
+  }
+
+  // 3. Extract and verify session token
   const token = request.cookies.get(COOKIE_NAME)?.value;
   let userPayload: {
     userId: string;
@@ -43,37 +62,22 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Redirect to dashboard if logged in user visits /login
-  if (pathname === "/login") {
-    if (userPayload) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
-    }
-    return NextResponse.next();
-  }
-
-  // Protected application routes
-  const protectedRoutes = [
-    "/dashboard",
-    "/clients",
-    "/calendars",
-    "/team",
-    "/leaves",
-    "/announcements",
-    "/activity",
-  ];
-
-  const isProtectedRoute = protectedRoutes.some((route) =>
-    pathname.startsWith(route)
-  );
-
-  if (isProtectedRoute && !userPayload) {
+  // 4. Strict Block: If no valid token, redirect directly to /login
+  if (!userPayload) {
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("from", pathname);
-    return NextResponse.redirect(loginUrl);
+    if (pathname !== "/") {
+      loginUrl.searchParams.set("from", pathname);
+    }
+    const response = NextResponse.redirect(loginUrl);
+    // Clear any invalid/expired cookie
+    if (token) {
+      response.cookies.delete(COOKIE_NAME);
+    }
+    return response;
   }
 
-  // Admin-only route guard
-  if (pathname.startsWith("/activity") && userPayload?.role !== "ADMIN") {
+  // 5. Admin-only route guards
+  if (pathname.startsWith("/activity") && userPayload.role !== "ADMIN") {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
@@ -81,5 +85,13 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    /*
+     * Match all request paths except:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    "/((?!_next/static|_next/image|favicon.ico).*)",
+  ],
 };

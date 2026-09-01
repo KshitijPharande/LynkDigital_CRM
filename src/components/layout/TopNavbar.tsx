@@ -19,7 +19,7 @@ interface TopNavbarProps {
   subtitle?: string;
   onOpenNewClientModal?: () => void;
   onOpenLeaveModal?: () => void;
-  onSwitchUser?: (role: "ADMIN" | "EMPLOYEE") => void;
+  onLogout?: () => void;
 }
 
 export function TopNavbar({
@@ -28,9 +28,7 @@ export function TopNavbar({
   subtitle,
   onOpenNewClientModal,
   onOpenLeaveModal,
-  onSwitchUser,
 }: TopNavbarProps) {
-  const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const isAdmin = currentUser?.role === "ADMIN";
 

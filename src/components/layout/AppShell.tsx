@@ -29,15 +29,23 @@ export function AppShell({
   useEffect(() => {
     if (!initialUser) {
       fetch("/api/auth/me")
-        .then((res) => (res.ok ? res.json() : { user: null }))
+        .then((res) => {
+          if (!res.ok) {
+            router.push("/login");
+            return { user: null };
+          }
+          return res.json();
+        })
         .then((data) => {
           if (data.user) {
             setCurrentUser(data.user);
+          } else {
+            router.push("/login");
           }
         })
-        .catch((err) => console.error("Session check error:", err));
+        .catch(() => router.push("/login"));
     }
-  }, [initialUser]);
+  }, [initialUser, router]);
 
   const handleLogout = async () => {
     try {
@@ -50,48 +58,25 @@ export function AppShell({
     }
   };
 
-  const handleSwitchUser = async (role: "ADMIN" | "EMPLOYEE") => {
-    const demoEmail =
-      role === "ADMIN" ? "alex@lynkdigital.com" : "sarah.chen@lynkdigital.com";
-
-    try {
-      await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: demoEmail,
-          password: "password123",
-          isDemoBypass: true,
-        }),
-      });
-      router.refresh();
-      window.location.reload();
-    } catch (err) {
-      console.error("Switch error:", err);
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-dark-bg text-gray-100 flex">
-      {/* Fixed Sidebar */}
-      <Sidebar
-        currentUser={currentUser}
-        onLogout={handleLogout}
-      />
+    <div className="min-h-screen bg-dark-bg text-gray-100 flex flex-col">
+      {/* Fixed Left Sidebar */}
+      <Sidebar currentUser={currentUser} onLogout={handleLogout} />
 
       {/* Main Content Area */}
-      <div className="flex-1 ml-64 flex flex-col min-h-screen">
+      <div className="pl-64 flex flex-col flex-1 min-h-screen">
+        {/* Top Navbar */}
         <TopNavbar
-          currentUser={currentUser}
           title={title}
           subtitle={subtitle}
-          onSwitchUser={handleSwitchUser}
+          currentUser={currentUser}
+          onLogout={handleLogout}
           onOpenNewClientModal={onOpenNewClientModal}
           onOpenLeaveModal={onOpenLeaveModal}
         />
 
-        {/* Dynamic Page Content */}
-        <main className="flex-1 p-6 lg:p-8 max-w-7xl w-full mx-auto animate-fadeIn">
+        {/* Page Content */}
+        <main className="flex-1 p-6 max-w-7xl w-full mx-auto animate-fadeIn">
           {children}
         </main>
       </div>

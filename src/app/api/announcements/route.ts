@@ -7,6 +7,11 @@ export const dynamic = "force-dynamic";
 // GET /api/announcements - List company announcements
 export async function GET() {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const announcements = await prisma.announcement.findMany({
       orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
       include: {

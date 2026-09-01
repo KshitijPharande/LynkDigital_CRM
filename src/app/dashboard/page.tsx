@@ -14,13 +14,18 @@ import {
   ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const currentUser = await getCurrentUser();
-  const isAdmin = currentUser?.role === "ADMIN";
+  if (!currentUser) {
+    redirect("/login");
+  }
+
+  const isAdmin = currentUser.role === "ADMIN";
 
   // Fetch real data from database
   const [

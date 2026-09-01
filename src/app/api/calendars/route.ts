@@ -7,6 +7,11 @@ export const dynamic = "force-dynamic";
 // GET /api/calendars - List all content calendar directories
 export async function GET(request: Request) {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const month = searchParams.get("month");
     const status = searchParams.get("status");

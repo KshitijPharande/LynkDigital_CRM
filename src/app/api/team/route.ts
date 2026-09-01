@@ -8,6 +8,11 @@ export const dynamic = "force-dynamic";
 // GET /api/team - List all team members with assigned clients
 export async function GET() {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const users = await prisma.user.findMany({
       orderBy: [{ role: "asc" }, { name: "asc" }],
       include: {
