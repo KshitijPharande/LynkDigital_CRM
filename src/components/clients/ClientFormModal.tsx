@@ -242,56 +242,52 @@ export function ClientFormModal({
 
               <div>
                 <label className="block text-xs font-medium text-gray-300 mb-1">
-                  Industry / Niche *
+                  Industry / Niche (Optional)
                 </label>
                 <input
                   type="text"
                   value={industry}
                   onChange={(e) => setIndustry(e.target.value)}
                   placeholder="e.g. Sportswear & E-Commerce"
-                  required
                   className="w-full bg-dark-bg border border-dark-border rounded-xl px-3 py-2 text-xs text-white placeholder-dark-subtle focus:outline-none focus:border-brand-500"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-gray-300 mb-1">
-                  Primary Contact Person *
+                  Primary Contact Person (Optional)
                 </label>
                 <input
                   type="text"
                   value={contactPerson}
                   onChange={(e) => setContactPerson(e.target.value)}
                   placeholder="e.g. Carlos Rivera"
-                  required
                   className="w-full bg-dark-bg border border-dark-border rounded-xl px-3 py-2 text-xs text-white placeholder-dark-subtle focus:outline-none focus:border-brand-500"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-gray-300 mb-1">
-                  Contact Email *
+                  Contact Email (Optional)
                 </label>
                 <input
                   type="email"
                   value={contactEmail}
                   onChange={(e) => setContactEmail(e.target.value)}
                   placeholder="carlos@apex.com"
-                  required
                   className="w-full bg-dark-bg border border-dark-border rounded-xl px-3 py-2 text-xs text-white placeholder-dark-subtle focus:outline-none focus:border-brand-500"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-gray-300 mb-1">
-                  Contact Phone Number *
+                  Contact Phone Number (Optional)
                 </label>
                 <input
                   type="text"
                   value={contactPhone}
                   onChange={(e) => setContactPhone(e.target.value)}
-                  placeholder="+1 (555) 778-9901"
-                  required
+                  placeholder="+91 98765 43210"
                   className="w-full bg-dark-bg border border-dark-border rounded-xl px-3 py-2 text-xs text-white placeholder-dark-subtle focus:outline-none focus:border-brand-500"
                 />
               </div>

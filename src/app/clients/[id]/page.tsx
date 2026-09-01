@@ -203,28 +203,39 @@ export default function ClientDetailPage() {
               <p className="text-[10px] font-bold uppercase tracking-wider text-dark-subtle">
                 Primary Client Contact
               </p>
-              <p className="text-sm font-semibold text-white">
-                {client.contactPerson}
-              </p>
+              {client.contactPerson ? (
+                <p className="text-sm font-semibold text-white">
+                  {client.contactPerson}
+                </p>
+              ) : (
+                <p className="text-xs text-dark-subtle italic">No contact person specified</p>
+              )}
               <div className="space-y-1 text-xs text-dark-muted">
-                <div className="flex items-center gap-2">
-                  <Mail className="w-3.5 h-3.5 text-brand-400 shrink-0" />
-                  <a
-                    href={`mailto:${client.contactEmail}`}
-                    className="hover:text-brand-300 transition-colors"
-                  >
-                    {client.contactEmail}
-                  </a>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Phone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <a
-                    href={`tel:${client.contactPhone}`}
-                    className="hover:text-emerald-300 transition-colors"
-                  >
-                    {client.contactPhone}
-                  </a>
-                </div>
+                {client.contactEmail && (
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-3.5 h-3.5 text-brand-400 shrink-0" />
+                    <a
+                      href={`mailto:${client.contactEmail}`}
+                      className="hover:text-brand-300 transition-colors"
+                    >
+                      {client.contactEmail}
+                    </a>
+                  </div>
+                )}
+                {client.contactPhone && (
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <a
+                      href={`tel:${client.contactPhone}`}
+                      className="hover:text-emerald-300 transition-colors"
+                    >
+                      {client.contactPhone}
+                    </a>
+                  </div>
+                )}
+                {!client.contactEmail && !client.contactPhone && (
+                  <p className="text-[11px] text-dark-subtle">No phone or email on file</p>
+                )}
               </div>
             </div>
           </div>

@@ -219,20 +219,34 @@ export default function ClientsPage() {
                     </div>
 
                     {/* Contact Person Details */}
-                    <div className="p-3 rounded-xl bg-dark-bg/60 border border-dark-border/80 text-xs space-y-1">
-                      <p className="text-gray-200 font-semibold">
-                        {client.contactPerson}
-                      </p>
-                      <div className="flex items-center justify-between text-dark-muted text-[11px]">
-                        <a
-                          href={`mailto:${client.contactEmail}`}
-                          className="hover:text-brand-300 transition-colors truncate"
-                        >
-                          {client.contactEmail}
-                        </a>
-                        <span>{client.contactPhone}</span>
+                    {(client.contactPerson || client.contactEmail || client.contactPhone) ? (
+                      <div className="p-3 rounded-xl bg-dark-bg/60 border border-dark-border/80 text-xs space-y-1">
+                        {client.contactPerson && (
+                          <p className="text-gray-200 font-semibold">
+                            {client.contactPerson}
+                          </p>
+                        )}
+                        <div className="flex items-center justify-between text-dark-muted text-[11px] gap-2">
+                          {client.contactEmail ? (
+                            <a
+                              href={`mailto:${client.contactEmail}`}
+                              className="hover:text-brand-300 transition-colors truncate"
+                            >
+                              {client.contactEmail}
+                            </a>
+                          ) : (
+                            <span className="text-dark-subtle">No email</span>
+                          )}
+                          {client.contactPhone && (
+                            <span className="shrink-0">{client.contactPhone}</span>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="p-2.5 rounded-xl bg-dark-bg/40 border border-dark-border/50 text-[11px] text-dark-subtle italic">
+                        No contact person listed
+                      </div>
+                    )}
 
                     {/* Assigned Creative Team */}
                     <div>

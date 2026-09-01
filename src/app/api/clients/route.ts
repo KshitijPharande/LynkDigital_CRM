@@ -100,9 +100,9 @@ export async function POST(request: Request) {
       teamMembers, // Array of { userId, role }
     } = body;
 
-    if (!brandName || !industry || !contactPerson || !contactEmail || !contactPhone) {
+    if (!brandName) {
       return NextResponse.json(
-        { error: "Please fill in all required client fields" },
+        { error: "Brand / Company name is required" },
         { status: 400 }
       );
     }
@@ -110,10 +110,10 @@ export async function POST(request: Request) {
     const newClient = await prisma.client.create({
       data: {
         brandName: brandName.trim(),
-        industry: industry.trim(),
-        contactPerson: contactPerson.trim(),
-        contactEmail: contactEmail.trim().toLowerCase(),
-        contactPhone: contactPhone.trim(),
+        industry: industry?.trim() || "General",
+        contactPerson: contactPerson?.trim() || null,
+        contactEmail: contactEmail?.trim() ? contactEmail.trim().toLowerCase() : null,
+        contactPhone: contactPhone?.trim() || null,
         accountManagerId: accountManagerId || null,
         status,
         priority,
