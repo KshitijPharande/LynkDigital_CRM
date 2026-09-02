@@ -5,6 +5,7 @@ import { Sidebar } from "./Sidebar";
 import { TopNavbar } from "./TopNavbar";
 import { CurrentUser } from "@/types";
 import { useRouter } from "next/navigation";
+import { InactivityGuard } from "@/components/auth/InactivityGuard";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -60,6 +61,9 @@ export function AppShell({
 
   return (
     <div className="min-h-screen bg-dark-bg text-gray-100 flex flex-col">
+      {/* 15-minute Inactivity Auto-Logout Tracker */}
+      <InactivityGuard />
+
       {/* Fixed Left Sidebar */}
       <Sidebar currentUser={currentUser} onLogout={handleLogout} />
 
