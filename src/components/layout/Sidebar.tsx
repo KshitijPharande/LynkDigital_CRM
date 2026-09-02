@@ -15,6 +15,7 @@ import {
   Sparkles,
   LogOut,
   ChevronRight,
+  Send,
 } from "lucide-react";
 import { CurrentUser } from "@/types";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,12 @@ interface SidebarProps {
 export function Sidebar({ currentUser, onLogout }: SidebarProps) {
   const pathname = usePathname();
   const isAdmin = currentUser?.role === "ADMIN";
+  const isWebDevOrAdmin =
+    isAdmin ||
+    currentUser?.department?.toLowerCase().includes("web") ||
+    currentUser?.department?.toLowerCase().includes("dev") ||
+    currentUser?.designation?.toLowerCase().includes("web") ||
+    currentUser?.designation?.toLowerCase().includes("developer");
 
   const navigationItems = [
     {
@@ -35,6 +42,15 @@ export function Sidebar({ currentUser, onLogout }: SidebarProps) {
       icon: LayoutDashboard,
       roles: ["ADMIN", "EMPLOYEE"],
       badge: null,
+      visible: true,
+    },
+    {
+      name: "Cold Outreach",
+      href: "/outreach",
+      icon: Send,
+      roles: ["ADMIN", "EMPLOYEE"],
+      badge: "Zoho",
+      visible: isWebDevOrAdmin,
     },
     {
       name: "Clients & Assets",
@@ -108,7 +124,11 @@ export function Sidebar({ currentUser, onLogout }: SidebarProps) {
           Main Menu
         </div>
         {navigationItems
-          .filter((item) => !item.roles || (currentUser && item.roles.includes(currentUser.role)))
+          .filter(
+            (item) =>
+              item.visible !== false &&
+              (!item.roles || (currentUser && item.roles.includes(currentUser.role)))
+          )
           .map((item) => {
             const Icon = item.icon;
             const isActive =

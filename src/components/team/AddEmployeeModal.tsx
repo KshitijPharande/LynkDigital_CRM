@@ -176,6 +176,7 @@ export function AddEmployeeModal({
                 className="w-full bg-dark-bg border border-dark-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500"
               >
                 <option value="Social Media">Social Media</option>
+                <option value="Web Development">Web Development</option>
                 <option value="Design">Design & Creative</option>
                 <option value="Video Production">Video Production</option>
                 <option value="Content & Copy">Content & Copy</option>

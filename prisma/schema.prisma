@@ -139,8 +139,8 @@ model Announcement {
 
 model ActivityLog {
   id         String   @id @default(cuid())
-  action     String   // e.g., CLIENT_CREATED, CALENDAR_UPDATED, LEAVE_REVIEWED
-  entityType String   // CLIENT | CALENDAR | LEAVE | ANNOUNCEMENT
+  action     String   // e.g., CLIENT_CREATED, CALENDAR_UPDATED, LEAVE_REVIEWED, OUTREACH_SYNCED
+  entityType String   // CLIENT | CALENDAR | LEAVE | ANNOUNCEMENT | LEAD
   entityId   String?
   details    String
   userId     String?
@@ -149,4 +149,63 @@ model ActivityLog {
 
   @@index([entityType])
   @@index([createdAt])
+}
+
+// -------------------------------------------------------------
+// Cold Email Outreach & Lead Follow-Up Models
+// -------------------------------------------------------------
+
+model Lead {
+  id                 String    @id @default(cuid())
+  businessName       String
+  email              String
+  region             String?
+  originalSubject    String
+  originalBody       String
+  zohoMessageId      String    @unique
+  dateSent           DateTime
+  senderEmail        String    @default("kshitij@lynkdigital.co.in")
+  senderName         String    @default("Kshitij Pharande")
+  
+  // Lifecycle Status:
+  // pending | due_for_followup_1 | followup_1_drafted | followup_1_sent |
+  // due_for_followup_2 | followup_2_drafted | followup_2_sent |
+  // due_for_breakup | breakup_drafted | breakup_sent | replied | closed
+  status             String    @default("pending")
+  
+  followupDraft      String?
+  followupSentDate   DateTime?
+  followup2Draft     String?
+  followup2SentDate  DateTime?
+  breakupDraft       String?
+  breakupSentDate    DateTime?
+  
+  notes              String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([status])
+  @@index([senderEmail])
+  @@index([dateSent])
+}
+
+model OutreachAccount {
+  id           String    @id @default(cuid())
+  senderName   String    // e.g. "Kshitij Pharande", "Swarada"
+  senderEmail  String    @unique // e.g. "kshitij@lynkdigital.co.in", "swarada@lynkdigital.co.in"
+  refreshToken String
+  dataCenter   String    @default("in")
+  clientId     String?
+  clientSecret String?
+  lastSyncAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([senderEmail])
+}
+
+model OutreachSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @default(now()) @updatedAt
 }
