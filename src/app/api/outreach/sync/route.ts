@@ -27,10 +27,13 @@ export async function POST(request: Request) {
     const senderEmail = body.senderEmail || currentUser.email;
 
     // 1. Get Zoho token & account info for this sender
-    const { accessToken, dataCenter, senderName } =
+    const { accessToken, dataCenter, senderName: configuredSenderName } =
       await getZohoTokenForAccount(senderEmail);
 
-    const { accountId } = await getPrimaryAccountInfo(accessToken, dataCenter);
+    const { accountId, emailAddress } = await getPrimaryAccountInfo(accessToken, dataCenter);
+    const actualSenderEmail = emailAddress || senderEmail;
+    const actualSenderName = configuredSenderName || "Kshitij Pharande";
+
     const { sentFolderId, inboxFolderId } = await getFolderIds(
       accountId,
       accessToken,
@@ -52,33 +55,19 @@ export async function POST(request: Request) {
       if (!msg.messageId || !msg.toAddress) continue;
 
       const cleanedEmail = cleanEmailAddress(msg.toAddress);
+      if (!cleanedEmail || cleanedEmail.includes("lynkdigital.co.in")) continue;
 
-      // Deduplication check
-      const existing = await prisma.lead.findUnique({
-        where: { zohoMessageId: msg.messageId },
-      });
+      try {
+        // Fetch message body
+        const { content } = await getMessageContent(
+          accountId,
+          sentFolderId,
+          msg.messageId,
+          accessToken,
+          dataCenter
+        );
 
-      if (existing) {
-        if (existing.email !== cleanedEmail) {
-          await prisma.lead.update({
-            where: { id: existing.id },
-            data: { email: cleanedEmail },
-          });
-        }
-        continue;
-      }
-
-      // Fetch message body
-      const { content } = await getMessageContent(
-        accountId,
-        sentFolderId,
-        msg.messageId,
-        accessToken,
-        dataCenter
-      );
-
-      const subject = msg.subject || "";
-      if (isOutreachEmail(subject, content)) {
+        const subject = msg.subject || "";
         const businessName = parseBusinessName(subject, content, cleanedEmail);
 
         let dateSent = new Date();
@@ -89,33 +78,53 @@ export async function POST(request: Request) {
           if (!isNaN(parsed.getTime())) dateSent = parsed;
         }
 
+        // Deduplication by Email: 1 Lead card per prospective business
+        const existingLead = await prisma.lead.findFirst({
+          where: { email: cleanedEmail },
+        });
+
+        if (existingLead) {
+          // If we found a better name from subject/body, update it without duplicating
+          if (
+            existingLead.businessName === "Prospect" &&
+            businessName !== "Prospect"
+          ) {
+            await prisma.lead.update({
+              where: { id: existingLead.id },
+              data: { businessName },
+            });
+          }
+          continue;
+        }
+
         await prisma.lead.create({
           data: {
             businessName,
             email: cleanedEmail,
-            originalSubject: subject,
+            originalSubject: subject || "Cold Outreach",
             originalBody: content.slice(0, 3000),
             zohoMessageId: msg.messageId,
             dateSent,
-            senderEmail: senderEmail.toLowerCase().trim(),
-            senderName,
+            senderEmail: actualSenderEmail.toLowerCase().trim(),
+            senderName: actualSenderName,
             status: "pending",
           },
         });
         newLeadsCount++;
+      } catch (err) {
+        console.error(`Error processing message ${msg.messageId}:`, err);
       }
     }
 
-    // 3. Scan Inbox for replies
+    // 3. Scan Inbox for replies across all active prospects
     const activeLeads = await prisma.lead.findMany({
       where: {
-        senderEmail: senderEmail.toLowerCase().trim(),
-        status: { notIn: ["replied", "closed"] },
+        status: { notIn: ["replied", "dead", "closed"] },
       },
     });
 
     const leadEmails = activeLeads.map((l) => l.email);
-    const repliedEmails = await checkInboxForReplies(
+    const repliesMap = await checkInboxForReplies(
       accountId,
       inboxFolderId,
       leadEmails,
@@ -124,12 +133,25 @@ export async function POST(request: Request) {
     );
 
     let repliedCount = 0;
-    for (const email of Array.from(repliedEmails)) {
-      await prisma.lead.updateMany({
-        where: { email, senderEmail: senderEmail.toLowerCase().trim() },
-        data: { status: "replied" },
-      });
-      repliedCount++;
+    let declinedCount = 0;
+
+    for (const [email, info] of Array.from(repliesMap.entries())) {
+      if (info.isDeclined) {
+        await prisma.lead.updateMany({
+          where: { email: { equals: email, mode: "insensitive" } },
+          data: {
+            status: "dead",
+            notes: "Prospect declined / not interested in online presence.",
+          },
+        });
+        declinedCount++;
+      } else {
+        await prisma.lead.updateMany({
+          where: { email: { equals: email, mode: "insensitive" } },
+          data: { status: "replied" },
+        });
+        repliedCount++;
+      }
     }
 
     // 4. Time-Based Progression (4-Day Rule: Day 4 -> Day 8 -> Day 12)
@@ -140,7 +162,6 @@ export async function POST(request: Request) {
 
     const remainingLeads = await prisma.lead.findMany({
       where: {
-        senderEmail: senderEmail.toLowerCase().trim(),
         status: { notIn: ["replied", "closed"] },
       },
     });
@@ -223,6 +244,17 @@ export async function POST(request: Request) {
             },
           });
           dueCount++;
+        }
+      }
+
+      // Dead Lead: 4 days after Break-up email sent without reply (Sequence finished)
+      else if (lead.status === "breakup_sent" && lead.breakupSentDate) {
+        const elapsed = now.getTime() - new Date(lead.breakupSentDate).getTime();
+        if (elapsed >= FOUR_DAYS_MS) {
+          await prisma.lead.update({
+            where: { id: lead.id },
+            data: { status: "dead" },
+          });
         }
       }
     }

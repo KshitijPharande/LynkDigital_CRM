@@ -50,12 +50,21 @@ interface Lead {
 
 export default function OutreachPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [counts, setCounts] = useState({ total: 0, due: 0, drafts: 0, replied: 0 });
+  const [counts, setCounts] = useState({
+    total: 0,
+    due1: 0,
+    due2: 0,
+    breakup: 0,
+    replied: 0,
+    dead: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<"due" | "drafts" | "sent" | "replied" | "all">("due");
+  const [activeTab, setActiveTab] = useState<
+    "all" | "due_1" | "due_2" | "breakup" | "replied" | "dead"
+  >("all");
   const [selectedSender, setSelectedSender] = useState("ALL");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -160,9 +169,9 @@ export default function OutreachPage() {
     }
   };
 
-  // Send Follow-Up via Zoho with Re: threading
+  // Send Follow-Up via Zoho with Re: threading (Auto-generates draft if needed)
   const handleSendEmail = async (lead: Lead, stage: 1 | 2 | 3) => {
-    const content =
+    let content =
       draftEdits[lead.id] ||
       (stage === 1
         ? lead.followupDraft
@@ -170,21 +179,23 @@ export default function OutreachPage() {
         ? lead.followup2Draft
         : lead.breakupDraft);
 
-    if (!content) {
-      alert("Please generate or enter email draft content first.");
-      return;
-    }
-
-    if (
-      !confirm(
-        `Send Follow-up #${stage} to ${lead.businessName} (${lead.email}) from ${lead.senderEmail}?`
-      )
-    ) {
-      return;
-    }
-
     setSendingEmail((prev) => ({ ...prev, [lead.id]: true }));
+
     try {
+      // 1. If draft doesn't exist yet, auto-generate via Groq AI first
+      if (!content) {
+        const draftRes = await fetch("/api/outreach/draft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ leadId: lead.id, stage }),
+        });
+        const draftData = await draftRes.json();
+        if (!draftRes.ok) throw new Error(draftData.error || "Failed to generate AI draft");
+        content = draftData.draft;
+        setDraftEdits((prev) => ({ ...prev, [lead.id]: content || "" }));
+      }
+
+      // 2. Send email via Zoho in the same thread (Re:)
       const res = await fetch("/api/outreach/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -198,6 +209,9 @@ export default function OutreachPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to send email");
 
+      setSyncNotice(
+        `Sent ${stage === 3 ? "Break-Up Email" : `Follow-up #${stage}`} to ${lead.businessName} (${lead.email}) from ${lead.senderEmail}!`
+      );
       fetchLeads();
     } catch (err: any) {
       alert(`Send Error: ${err.message}`);
@@ -251,6 +265,9 @@ export default function OutreachPage() {
       case "followup_2_sent":
       case "breakup_sent":
         return "bg-purple-500/10 text-purple-400 border-purple-500/20";
+      case "dead":
+      case "closed":
+        return "bg-zinc-800 text-zinc-400 border-zinc-700 font-medium";
       default:
         return "bg-dark-border text-dark-muted border-dark-borderLight";
     }
@@ -275,9 +292,11 @@ export default function OutreachPage() {
       case "breakup_drafted":
         return "Break-up Draft Ready";
       case "breakup_sent":
-        return "Break-up Sent (Sequence Done)";
+        return "Break-up Sent (Awaiting final 4 days)";
       case "replied":
         return "Replied (Active Lead)";
+      case "dead":
+        return "Dead Lead (Sequence Finished)";
       case "pending":
         return "Waiting (Day 0-3)";
       default:
@@ -311,38 +330,58 @@ export default function OutreachPage() {
         {/* Top Control Bar & KPI Header */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           {/* KPI Metrics */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 flex-1">
-            <div className="glass-panel p-3.5 rounded-xl border border-dark-border">
-              <span className="text-[11px] text-dark-muted block">Total Prospects</span>
-              <span className="text-xl font-bold text-white mt-1 block">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 flex-1">
+            <div className="glass-panel p-3 rounded-xl border border-dark-border">
+              <span className="text-[10px] text-dark-muted block font-medium uppercase tracking-wider">
+                Total Prospects
+              </span>
+              <span className="text-lg font-bold text-white mt-0.5 block">
                 {counts.total}
               </span>
             </div>
 
-            <div className="glass-panel p-3.5 rounded-xl border border-amber-500/20 bg-amber-500/5">
-              <span className="text-[11px] text-amber-400 font-semibold block">
-                Due for Follow-Up
+            <div className="glass-panel p-3 rounded-xl border border-amber-500/20 bg-amber-500/5">
+              <span className="text-[10px] text-amber-400 font-semibold block uppercase tracking-wider">
+                Follow-Up #1
               </span>
-              <span className="text-xl font-bold text-amber-300 mt-1 block">
-                {counts.due}
-              </span>
-            </div>
-
-            <div className="glass-panel p-3.5 rounded-xl border border-blue-500/20 bg-blue-500/5">
-              <span className="text-[11px] text-blue-400 font-semibold block">
-                AI Drafts Ready
-              </span>
-              <span className="text-xl font-bold text-blue-300 mt-1 block">
-                {counts.drafts}
+              <span className="text-lg font-bold text-amber-300 mt-0.5 block">
+                {counts.due1}
               </span>
             </div>
 
-            <div className="glass-panel p-3.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5">
-              <span className="text-[11px] text-emerald-400 font-semibold block">
-                Replies Received
+            <div className="glass-panel p-3 rounded-xl border border-orange-500/20 bg-orange-500/5">
+              <span className="text-[10px] text-orange-400 font-semibold block uppercase tracking-wider">
+                Follow-Up #2
               </span>
-              <span className="text-xl font-bold text-emerald-300 mt-1 block">
+              <span className="text-lg font-bold text-orange-300 mt-0.5 block">
+                {counts.due2}
+              </span>
+            </div>
+
+            <div className="glass-panel p-3 rounded-xl border border-rose-500/20 bg-rose-500/5">
+              <span className="text-[10px] text-rose-400 font-semibold block uppercase tracking-wider">
+                Break-Up Due
+              </span>
+              <span className="text-lg font-bold text-rose-300 mt-0.5 block">
+                {counts.breakup}
+              </span>
+            </div>
+
+            <div className="glass-panel p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5">
+              <span className="text-[10px] text-emerald-400 font-semibold block uppercase tracking-wider">
+                Replied
+              </span>
+              <span className="text-lg font-bold text-emerald-300 mt-0.5 block">
                 {counts.replied}
+              </span>
+            </div>
+
+            <div className="glass-panel p-3 rounded-xl border border-zinc-700/40 bg-zinc-900/40">
+              <span className="text-[10px] text-zinc-400 font-semibold block uppercase tracking-wider">
+                Dead Leads
+              </span>
+              <span className="text-lg font-bold text-zinc-300 mt-0.5 block">
+                {counts.dead}
               </span>
             </div>
           </div>
@@ -378,40 +417,51 @@ export default function OutreachPage() {
 
         {/* Filters & Pipeline Tabs */}
         <div className="glass-panel p-4 rounded-2xl border border-dark-border space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            {/* Tabs */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            {/* Stage Tabs */}
             <div className="flex flex-wrap gap-1.5 bg-dark-bg/60 p-1.5 rounded-xl border border-dark-border w-fit">
               <button
-                onClick={() => setActiveTab("due")}
+                onClick={() => setActiveTab("all")}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  activeTab === "due"
+                  activeTab === "all"
+                    ? "bg-dark-card text-white border border-dark-borderLight shadow-sm"
+                    : "text-dark-muted hover:text-gray-300"
+                }`}
+              >
+                All Prospects ({counts.total})
+              </button>
+
+              <button
+                onClick={() => setActiveTab("due_1")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  activeTab === "due_1"
                     ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 shadow-sm"
                     : "text-dark-muted hover:text-gray-300"
                 }`}
               >
-                Due for Follow-Up ({counts.due})
+                Follow-Up #1 ({counts.due1})
               </button>
 
               <button
-                onClick={() => setActiveTab("drafts")}
+                onClick={() => setActiveTab("due_2")}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  activeTab === "drafts"
-                    ? "bg-blue-500/20 text-blue-300 border border-blue-500/30 shadow-sm"
+                  activeTab === "due_2"
+                    ? "bg-orange-500/20 text-orange-300 border border-orange-500/30 shadow-sm"
                     : "text-dark-muted hover:text-gray-300"
                 }`}
               >
-                Drafts Ready ({counts.drafts})
+                Follow-Up #2 ({counts.due2})
               </button>
 
               <button
-                onClick={() => setActiveTab("sent")}
+                onClick={() => setActiveTab("breakup")}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  activeTab === "sent"
-                    ? "bg-brand-500/20 text-brand-300 border border-brand-500/30 shadow-sm"
+                  activeTab === "breakup"
+                    ? "bg-rose-500/20 text-rose-300 border border-rose-500/30 shadow-sm"
                     : "text-dark-muted hover:text-gray-300"
                 }`}
               >
-                Active Sequences
+                Break-Up Due ({counts.breakup})
               </button>
 
               <button
@@ -426,14 +476,14 @@ export default function OutreachPage() {
               </button>
 
               <button
-                onClick={() => setActiveTab("all")}
+                onClick={() => setActiveTab("dead")}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  activeTab === "all"
-                    ? "bg-dark-card text-white border border-dark-borderLight shadow-sm"
+                  activeTab === "dead"
+                    ? "bg-zinc-800 text-zinc-300 border border-zinc-700 shadow-sm"
                     : "text-dark-muted hover:text-gray-300"
                 }`}
               >
-                All Prospects ({counts.total})
+                Dead Leads ({counts.dead})
               </button>
             </div>
 
@@ -473,18 +523,35 @@ export default function OutreachPage() {
             <div className="h-28 bg-dark-card rounded-2xl" />
           </div>
         ) : leads.length === 0 ? (
-          <div className="glass-panel p-12 text-center rounded-2xl border border-dark-border">
+          <div className="glass-panel p-12 text-center rounded-2xl border border-dark-border space-y-3">
             <Mail className="w-8 h-8 text-dark-subtle mx-auto mb-2" />
-            <h3 className="text-sm font-semibold text-white">No prospects in this tab</h3>
-            <p className="text-xs text-dark-muted mt-1 mb-4">
-              Click &quot;Sync Zoho Mail&quot; or import a CSV list to populate your outreach stream.
+            <h3 className="text-sm font-semibold text-white">
+              {(activeTab === "due_1" || activeTab === "due_2" || activeTab === "breakup") && counts.total > 0
+                ? "No follow-ups due in this stage today"
+                : "No prospects in this tab"}
+            </h3>
+            <p className="text-xs text-dark-muted max-w-md mx-auto">
+              {(activeTab === "due_1" || activeTab === "due_2" || activeTab === "breakup") && counts.total > 0
+                ? `Prospects in this sequence are waiting for their scheduled 4-day interval. They will automatically appear here when due.`
+                : 'Click "Sync Zoho Mail" or import a CSV list to populate your outreach stream.'}
             </p>
-            <button
-              onClick={handleSync}
-              className="px-4 py-2 rounded-xl bg-brand-600 text-white text-xs font-semibold shadow-glow hover:bg-brand-500"
-            >
-              Sync Zoho Inboxes Now
-            </button>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              {counts.total > 0 && activeTab !== "all" && (
+                <button
+                  onClick={() => setActiveTab("all")}
+                  className="px-4 py-2 rounded-xl bg-dark-bg border border-dark-border text-white text-xs font-semibold hover:border-brand-500/50 transition-all"
+                >
+                  View All Prospects ({counts.total})
+                </button>
+              )}
+              <button
+                onClick={handleSync}
+                disabled={syncing}
+                className="px-4 py-2 rounded-xl bg-brand-600 text-white text-xs font-semibold shadow-glow hover:bg-brand-500 disabled:opacity-50"
+              >
+                {syncing ? "Syncing..." : "Sync Zoho Mail Now"}
+              </button>
+            </div>
           </div>
         ) : (
           <div className="space-y-4">
@@ -562,14 +629,43 @@ export default function OutreachPage() {
 
                     {/* Quick Action Buttons */}
                     <div className="flex items-center gap-2 shrink-0">
+                      {/* Direct 1-Click Send Button */}
+                      {lead.status !== "replied" && lead.status !== "dead" && (
+                        <button
+                          onClick={() => handleSendEmail(lead, activeStage)}
+                          disabled={sendingEmail[lead.id]}
+                          className="px-3.5 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-glow flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                          <Send className={`w-3.5 h-3.5 ${sendingEmail[lead.id] ? "animate-spin" : ""}`} />
+                          <span>
+                            {sendingEmail[lead.id]
+                              ? "Sending via Zoho..."
+                              : activeStage === 3
+                              ? "Send Break-Up (Re:)"
+                              : `Send Follow-Up #${activeStage} (Re:)`}
+                          </span>
+                        </button>
+                      )}
+
                       {lead.status !== "replied" && (
                         <button
                           onClick={() => handleUpdateStatus(lead.id, "replied")}
-                          title="Mark as Replied"
-                          className="px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all"
+                          title="Mark as Interested / Replied"
+                          className="px-2.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Mark Replied</span>
+                          <span>Replied</span>
+                        </button>
+                      )}
+
+                      {lead.status !== "dead" && (
+                        <button
+                          onClick={() => handleUpdateStatus(lead.id, "dead")}
+                          title="Mark as Dead / Declined"
+                          className="px-2.5 py-1.5 rounded-xl bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700 text-xs font-medium flex items-center gap-1.5 transition-all"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          <span>Mark Dead</span>
                         </button>
                       )}
 
@@ -577,11 +673,12 @@ export default function OutreachPage() {
                         onClick={() =>
                           setExpandedLeadId(isExpanded ? null : lead.id)
                         }
-                        className="px-3 py-1.5 rounded-xl bg-dark-bg/80 border border-dark-border hover:border-brand-500/40 text-xs font-medium text-gray-200 flex items-center gap-1.5 transition-all"
+                        title="Review or Customize AI Email Draft"
+                        className="px-2.5 py-1.5 rounded-xl bg-dark-bg/80 border border-dark-border hover:border-brand-500/40 text-xs font-medium text-gray-200 flex items-center gap-1.5 transition-all"
                       >
                         <Sparkles className="w-3.5 h-3.5 text-brand-400" />
                         <span>
-                          {currentDraft ? "Review AI Draft" : "Draft Follow-Up"}
+                          {currentDraft ? "Edit Draft" : "Preview AI Draft"}
                         </span>
                         {isExpanded ? (
                           <ChevronUp className="w-3.5 h-3.5 text-dark-muted" />

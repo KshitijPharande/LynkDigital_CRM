@@ -25,9 +25,13 @@ export async function getZohoTokenForAccount(senderEmail?: string): Promise<{
     ? await prisma.outreachAccount.findUnique({
         where: { senderEmail: senderEmail.toLowerCase().trim() },
       })
-    : await prisma.outreachAccount.findFirst({
-        orderBy: { createdAt: "asc" },
-      });
+    : null;
+
+  if (!account) {
+    account = await prisma.outreachAccount.findFirst({
+      orderBy: { createdAt: "asc" },
+    });
+  }
 
   if (!account) {
     // Fallback to environment variables if no DB account created yet

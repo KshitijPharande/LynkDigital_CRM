@@ -121,15 +121,21 @@ export async function getMessageContent(
   return { content: json.data?.content || "" };
 }
 
+export interface DetectedReply {
+  email: string;
+  isDeclined: boolean;
+  snippet?: string;
+}
+
 export async function checkInboxForReplies(
   accountId: string,
   inboxFolderId: string,
   leadEmails: string[],
   accessToken: string,
   dataCenter: string
-): Promise<Set<string>> {
-  const repliedEmails = new Set<string>();
-  if (!leadEmails.length) return repliedEmails;
+): Promise<Map<string, DetectedReply>> {
+  const replies = new Map<string, DetectedReply>();
+  if (!leadEmails.length) return replies;
 
   const url = `https://mail.zoho.${dataCenter}/api/accounts/${accountId}/messages/view?folderId=${inboxFolderId}&limit=100`;
   const res = await fetch(url, {
@@ -140,20 +146,44 @@ export async function checkInboxForReplies(
 
   const json = await res.json();
   if (!json.data || !Array.isArray(json.data)) {
-    return repliedEmails;
+    return replies;
   }
 
   const messages: ZohoMessageSummary[] = json.data;
   const leadEmailSet = new Set(leadEmails.map((e) => e.toLowerCase().trim()));
 
+  const declineKeywords = [
+    "not looking",
+    "not interested",
+    "no thanks",
+    "no thank you",
+    "remove us",
+    "remove me",
+    "unsubscribe",
+    "don't contact",
+    "do not contact",
+    "not at this stage",
+    "not right now",
+    "not at this time",
+  ];
+
   for (const msg of messages) {
-    const sender = cleanEmailAddress(msg.sender || "");
-    if (leadEmailSet.has(sender)) {
-      repliedEmails.add(sender);
+    const sender = cleanEmailAddress(
+      (msg as any).fromAddress || msg.sender || ""
+    );
+    if (sender && leadEmailSet.has(sender)) {
+      const text = `${msg.subject || ""} ${(msg as any).summary || ""}`.toLowerCase();
+      const isDeclined = declineKeywords.some((kw) => text.includes(kw));
+
+      replies.set(sender, {
+        email: sender,
+        isDeclined,
+        snippet: (msg as any).summary || msg.subject,
+      });
     }
   }
 
-  return repliedEmails;
+  return replies;
 }
 
 export async function sendZohoEmail(params: {
@@ -241,21 +271,9 @@ export function parseBusinessName(
   return "Prospect";
 }
 
-export function isOutreachEmail(subject: string, body: string): boolean {
-  const text = `${subject} ${body}`.toLowerCase();
-  const keywords = [
-    "website",
-    "redesign",
-    "preview",
-    "walkthrough",
-    "lyncdigital",
-    "lynkdigital",
-    "web design",
-    "shopify",
-    "landing page",
-    "quick question",
-    "concept",
-    "mobile bug",
-  ];
-  return keywords.some((k) => text.includes(k));
+export function isOutreachEmail(subject: string, body: string, toAddress?: string): boolean {
+  if (toAddress && toAddress.toLowerCase().includes("lynkdigital.co.in")) {
+    return false; // Skip internal team emails
+  }
+  return true; // All external outgoing emails in this outreach inbox are prospects
 }

@@ -35,30 +35,31 @@ export async function GET(request: Request) {
 
     // Tab-based filtering
     switch (tab) {
-      case "due":
+      case "due_1":
         where.status = {
-          in: ["due_for_followup_1", "due_for_followup_2", "due_for_breakup"],
+          in: ["due_for_followup_1", "followup_1_drafted"],
         };
         break;
-      case "drafts":
+      case "due_2":
         where.status = {
-          in: [
-            "followup_1_drafted",
-            "followup_2_drafted",
-            "breakup_drafted",
-          ],
+          in: ["due_for_followup_2", "followup_2_drafted"],
         };
         break;
-      case "sent":
+      case "breakup":
         where.status = {
-          in: ["followup_1_sent", "followup_2_sent", "breakup_sent", "pending"],
+          in: ["due_for_breakup", "breakup_drafted"],
         };
         break;
       case "replied":
         where.status = "replied";
         break;
-      case "closed":
-        where.status = "closed";
+      case "dead":
+        where.status = { in: ["dead", "closed"] };
+        break;
+      case "sent":
+        where.status = {
+          in: ["followup_1_sent", "followup_2_sent", "breakup_sent", "pending"],
+        };
         break;
       default:
         break;
@@ -69,30 +70,39 @@ export async function GET(request: Request) {
       orderBy: [{ dateSent: "desc" }, { createdAt: "desc" }],
     });
 
-    // Also get KPI counts
-    const [totalCount, dueCount, draftsCount, repliedCount] =
+    // Counts scoped by sender if filtered
+    const countWhere: any = {};
+    if (sender && sender !== "ALL") {
+      countWhere.senderEmail = sender.toLowerCase().trim();
+    }
+
+    // Live counts for each specific pipeline stage
+    const [totalCount, due1Count, due2Count, breakupCount, repliedCount, deadCount] =
       await Promise.all([
-        prisma.lead.count(),
+        prisma.lead.count({ where: countWhere }),
         prisma.lead.count({
           where: {
-            status: {
-              in: ["due_for_followup_1", "due_for_followup_2", "due_for_breakup"],
-            },
+            ...countWhere,
+            status: { in: ["due_for_followup_1", "followup_1_drafted"] },
           },
         }),
         prisma.lead.count({
           where: {
-            status: {
-              in: [
-                "followup_1_drafted",
-                "followup_2_drafted",
-                "breakup_drafted",
-              ],
-            },
+            ...countWhere,
+            status: { in: ["due_for_followup_2", "followup_2_drafted"] },
           },
         }),
         prisma.lead.count({
-          where: { status: "replied" },
+          where: {
+            ...countWhere,
+            status: { in: ["due_for_breakup", "breakup_drafted"] },
+          },
+        }),
+        prisma.lead.count({
+          where: { ...countWhere, status: "replied" },
+        }),
+        prisma.lead.count({
+          where: { ...countWhere, status: { in: ["dead", "closed"] } },
         }),
       ]);
 
@@ -100,9 +110,11 @@ export async function GET(request: Request) {
       leads,
       counts: {
         total: totalCount,
-        due: dueCount,
-        drafts: draftsCount,
+        due1: due1Count,
+        due2: due2Count,
+        breakup: breakupCount,
         replied: repliedCount,
+        dead: deadCount,
       },
     });
   } catch (error) {
