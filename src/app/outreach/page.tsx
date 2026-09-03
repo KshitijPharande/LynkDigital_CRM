@@ -78,46 +78,49 @@ export default function OutreachPage() {
   const [sendingEmail, setSendingEmail] = useState<Record<string, boolean>>({});
   const [currentUser, setCurrentUser] = useState<any>(null);
 
-  const fetchLeads = useCallback(async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams({
-        tab: activeTab,
-        sender: selectedSender,
-        search: searchQuery,
-      });
+  const fetchLeads = useCallback(
+    async (showLoading = false) => {
+      try {
+        if (showLoading) setLoading(true);
+        const params = new URLSearchParams({
+          tab: activeTab,
+          sender: selectedSender,
+          search: searchQuery,
+        });
 
-      const res = await fetch(`/api/outreach/leads?${params.toString()}`);
-      const data = await res.json();
-      if (data.leads) setLeads(data.leads);
-      if (data.counts) setCounts(data.counts);
+        const res = await fetch(`/api/outreach/leads?${params.toString()}`);
+        const data = await res.json();
+        if (data.leads) setLeads(data.leads);
+        if (data.counts) setCounts(data.counts);
 
-      const meRes = await fetch("/api/auth/me");
-      const meData = await meRes.json();
-      if (meData.user) {
-        const u = meData.user;
-        const isAllowed =
-          u.role === "ADMIN" ||
-          u.department?.toLowerCase().includes("web") ||
-          u.department?.toLowerCase().includes("dev") ||
-          u.designation?.toLowerCase().includes("web") ||
-          u.designation?.toLowerCase().includes("developer");
+        const meRes = await fetch("/api/auth/me");
+        const meData = await meRes.json();
+        if (meData.user) {
+          const u = meData.user;
+          const isAllowed =
+            u.role === "ADMIN" ||
+            u.department?.toLowerCase().includes("web") ||
+            u.department?.toLowerCase().includes("dev") ||
+            u.designation?.toLowerCase().includes("web") ||
+            u.designation?.toLowerCase().includes("developer");
 
-        if (!isAllowed) {
-          window.location.href = "/dashboard";
-          return;
+          if (!isAllowed) {
+            window.location.href = "/dashboard";
+            return;
+          }
+          setCurrentUser(u);
         }
-        setCurrentUser(u);
+      } catch (err) {
+        console.error("Failed to load leads:", err);
+      } finally {
+        if (showLoading) setLoading(false);
       }
-    } catch (err) {
-      console.error("Failed to load leads:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [activeTab, selectedSender, searchQuery]);
+    },
+    [activeTab, selectedSender, searchQuery]
+  );
 
   useEffect(() => {
-    fetchLeads();
+    fetchLeads(true);
   }, [fetchLeads]);
 
   // Zoho Inbox & Sent folder sync
@@ -139,7 +142,7 @@ export default function OutreachPage() {
       setSyncNotice(
         `Sync complete for ${data.senderEmail}: ${data.newLeadsCount} new leads found, ${data.repliedCount} replies recorded, ${data.dueCount} follow-ups marked due.`
       );
-      fetchLeads();
+      fetchLeads(false);
     } catch (err: any) {
       setSyncNotice(`Sync Error: ${err.message}`);
     } finally {
@@ -225,7 +228,37 @@ export default function OutreachPage() {
       setSyncNotice(
         `Sent ${stage === 3 ? "Break-Up Email" : `Follow-up #${stage}`} to ${lead.businessName} (${lead.email}) from ${lead.senderEmail}!`
       );
-      fetchLeads();
+
+      // Optimistic in-place update without skeleton reload
+      const nextStatus =
+        stage === 1
+          ? "followup_1_sent"
+          : stage === 2
+          ? "followup_2_sent"
+          : "breakup_sent";
+
+      setLeads((prev) => {
+        if (
+          activeTab === "due_1" ||
+          activeTab === "due_2" ||
+          activeTab === "breakup"
+        ) {
+          return prev.filter((l) => l.id !== lead.id);
+        }
+        return prev.map((l) =>
+          l.id === lead.id ? { ...l, status: nextStatus } : l
+        );
+      });
+
+      setCounts((prev) => ({
+        ...prev,
+        due1: stage === 1 && prev.due1 > 0 ? prev.due1 - 1 : prev.due1,
+        due2: stage === 2 && prev.due2 > 0 ? prev.due2 - 1 : prev.due2,
+        breakup: stage === 3 && prev.breakup > 0 ? prev.breakup - 1 : prev.breakup,
+      }));
+
+      // Background silent refresh
+      fetchLeads(false);
     } catch (err: any) {
       alert(`Send Error: ${err.message}`);
     } finally {
@@ -233,8 +266,22 @@ export default function OutreachPage() {
     }
   };
 
-  // 1-Click Status Update (e.g. Mark as Replied)
+  // 1-Click Status Update (e.g. Mark as Replied / Dead)
   const handleUpdateStatus = async (leadId: string, status: string) => {
+    // Optimistic in-place update
+    setLeads((prev) => {
+      if (
+        activeTab === "due_1" ||
+        activeTab === "due_2" ||
+        activeTab === "breakup" ||
+        (activeTab === "replied" && status !== "replied") ||
+        (activeTab === "dead" && status !== "dead")
+      ) {
+        return prev.filter((l) => l.id !== leadId);
+      }
+      return prev.map((l) => (l.id === leadId ? { ...l, status } : l));
+    });
+
     try {
       const res = await fetch(`/api/outreach/leads/${leadId}`, {
         method: "PATCH",
@@ -243,9 +290,10 @@ export default function OutreachPage() {
       });
 
       if (!res.ok) throw new Error("Failed to update status");
-      fetchLeads();
+      fetchLeads(false);
     } catch (err: any) {
       alert(err.message);
+      fetchLeads(false);
     }
   };
 
