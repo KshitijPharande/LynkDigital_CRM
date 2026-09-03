@@ -23,7 +23,7 @@ export async function generateFollowupDraft(params: {
   const senderName = params.senderName || "Kshitij Pharande";
   const stage = params.stage || 1;
 
-  const prompt = `You are ${senderName} from LynkDigital, writing a natural, highly contextual Follow-Up #${stage} email to a prospect who hasn't replied yet.
+  const prompt = `You are ${senderName} from LynkDigital, writing a short, natural, high-converting Follow-Up #${stage} email to a prospect in the same thread (Re:).
 
 READ AND ANALYZE THE EXACT EMAIL PREVIOUSLY SENT:
 - Recipient / Business: ${params.businessName}
@@ -33,22 +33,32 @@ READ AND ANALYZE THE EXACT EMAIL PREVIOUSLY SENT:
 ${params.originalBody}
 """
 
-INSTRUCTIONS FOR WRITING THIS FOLLOW-UP:
-1. READ THE PREVIOUS EMAIL CAREFULLY. You MUST reflect the exact context, specific offer, pain point, or concept mentioned in the email above (e.g. if you mentioned their Facebook/Instagram presence, their lack of a website, a specific concept preview, trade/niche details, or quote conversion).
-2. TONE & STRUCTURE:
-   - Casual, conversational, friendly, like a real human following up on a previous message in the same thread.
-   - 2 to 3 sentences maximum. Keep it concise and low-friction.
-   - Stage 1 (Follow-up #1): Friendly check-in connecting back to what you specifically proposed or noticed in your previous note. Ask if they'd like you to send over the preview/details, with zero pressure.
-   - Stage 2 (Follow-up #2): Brief, polite final check-in on the specific idea/concept before assuming it's not a priority right now.
-3. CRITICAL RULES:
-   - NEVER use cookie-cutter generic templates. Every email must be uniquely tailored to what was actually written in the original email body above.
-   - NEVER use em-dashes (—) or en-dashes (–). Use standard commas or periods only.
-   - If in the previous email you offered to send a preview/concept/walkthrough, ask if they would like to see it. Do NOT claim you already attached/sent it if you only offered to send it.
-   - Sign-off:
+FOLLOW-UP FRAMEWORK TO EXECUTE:
+1. GREETING:
+   - "Hi [First Name or Team name]," (e.g. "Hi Rob," or "Hi Gardenia team," or "Hi ${params.businessName},").
+
+2. THE "REASON I ASK" HOOK + SPECIFIC PAIN POINT:
+   - Start the next sentence with: "The reason I ask is..."
+   - Then immediately articulate the specific observation or pain point from the previous email.
+   - Examples based on context:
+     * If they only have Facebook/Instagram and no website: "The reason I ask is I noticed you're relying mostly on social media right now, which means local homeowners searching Google for [service] in [location] miss your work."
+     * If their site is outdated or missing a quote button: "The reason I ask is I noticed your current site is missing an instant quote button and still has the default WordPress icon, which can let potential leads slip away."
+     * If they have great photos: "The reason I ask is we've been helping other [industry] businesses showcase their project photos so higher-budget clients reach out directly."
+
+3. LOW-FRICTION MICRO-ASK (Permission for 2-min walkthrough):
+   - Ask permission to send the walkthrough/concept:
+     * Stage 1: "Can I send over a quick 2-minute video walkthrough of the site concept I put together showing how you could capture those quotes?"
+     * Stage 2: "Just checking in one last time, would you be open to checking out the quick 2-minute video walkthrough I put together for ${params.businessName}?"
+
+4. SIGN-OFF:
 Cheers,
 ${senderName}
 LynkDigital
-   - Return ONLY the plaintext email body (no subject line, no placeholders, no markdown code blocks).`;
+
+CRITICAL RULES:
+- NEVER USE EM-DASHES (—) OR EN-DASHES (–). Use standard commas or periods only.
+- 2 to 3 sentences maximum. Keep it punchy, conversational, and low pressure.
+- Return ONLY the plaintext email body (no subject line, no placeholders, no markdown code blocks).`;
 
   const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
 
@@ -66,7 +76,7 @@ LynkDigital
             {
               role: "system",
               content:
-                "You are an expert human copywriter writing short, highly personalized, contextual cold email follow-ups. You always carefully read and reference the exact context of the previous email. You never use em-dashes (— or –) and never use generic repetitive boilerplate.",
+                "You are an expert human copywriter writing short, highly personalized, high-converting cold email follow-ups. You always start follow-ups with 'The reason I ask is...' and directly reference the specific pain point from the previous email. You never use em-dashes (— or –).",
             },
             {
               role: "user",
@@ -93,8 +103,8 @@ LynkDigital
 
   // Fallback if API unavailable
   return stage === 1
-    ? `Hi ${params.businessName},\n\nJust following up on my previous note regarding ${params.originalSubject.replace(/^Re:\s*/i, "")}. Still happy to put together and send over the concept preview if you'd like to take a look?\n\nCheers,\n${senderName}\nLynkDigital`
-    : `Hi ${params.businessName},\n\nFollowing up briefly on my earlier note regarding ${params.businessName}. Let me know if you'd be open to checking out the concept preview, no worries at all if it's not a priority right now.\n\nCheers,\n${senderName}\nLynkDigital`;
+    ? `Hi ${params.businessName},\n\nThe reason I ask is we've been helping similar trade and local businesses capture more direct quote requests on Google, and I'd love to show you how with zero risk.\n\nCan I send over a quick 2-minute video walkthrough of the site concept I put together?\n\nCheers,\n${senderName}\nLynkDigital`
+    : `Hi ${params.businessName},\n\nJust checking in one last time, would you be open to checking out the quick 2-minute video walkthrough of the site concept I put together for ${params.businessName}?\n\nCheers,\n${senderName}\nLynkDigital`;
 }
 
 /**
