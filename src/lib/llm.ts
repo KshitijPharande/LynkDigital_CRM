@@ -9,7 +9,7 @@ function sanitizeHumanText(text: string): string {
 }
 
 /**
- * Generates natural Follow-up 1 or Follow-up 2 email draft using Groq AI.
+ * Generates contextual, natural Follow-up 1 or Follow-up 2 email draft using Groq AI.
  */
 export async function generateFollowupDraft(params: {
   businessName: string;
@@ -23,90 +23,78 @@ export async function generateFollowupDraft(params: {
   const senderName = params.senderName || "Kshitij Pharande";
   const stage = params.stage || 1;
 
-  if (!apiKey) {
-    // Fallback template if no Groq API key configured
-    return stage === 1
-      ? `Hi ${params.businessName},\n\nThe reason I ask is we've been helping similar trade and local businesses get found on Google and capture direct quote requests, and want to do the same for ${params.businessName} with zero risk.\n\nCan I send over a quick 2-minute video walkthrough of the site concept I put together?\n\nCheers,\n${senderName}\nLynkDigital`
-      : `Hi ${params.businessName},\n\nJust checking in one last time regarding ${params.businessName}. We put together a clean website concept preview with zero obligation, simply to show how to capture more online quote requests.\n\nOpen to checking out the quick 2-minute walkthrough?\n\nCheers,\n${senderName}\nLynkDigital`;
-  }
+  const prompt = `You are ${senderName} from LynkDigital, writing a natural, highly contextual Follow-Up #${stage} email to a prospect who hasn't replied yet.
 
-  const prompt = `You are ${senderName} from LynkDigital (a boutique web design & development studio).
-Write a short (2-3 sentences max), natural, high-converting follow-up email (Follow-up #${stage}) to a prospective business who hasn't replied to your initial cold email.
-
-Prospect Details:
-- Business / Contact Name: ${params.businessName}
+READ AND ANALYZE THE EXACT EMAIL PREVIOUSLY SENT:
+- Recipient / Business: ${params.businessName}
 - Original Subject: ${params.originalSubject}
-- Original Pitch You Sent:
+- Original Email Body:
 """
-${params.originalBody.slice(0, 1000)}
+${params.originalBody}
 """
 
-FOLLOW-UP FRAMEWORK TO USE:
-${
-  stage === 1
-    ? `For Follow-Up #1 (Email 2):
-1. Start with: "Hi [First Name or Team],"
-2. Hook & Social Proof: "The reason I ask is we've been helping similar trade and local businesses get found on Google and capture direct quote requests, and want to do the same for ${params.businessName} with zero risk."
-3. Low-Friction Call-To-Action (Asking permission): "Can I send over a quick 2-minute video walkthrough of the site concept I put together?"
-4. Keep it ultra punchy and concise.`
-    : `For Follow-Up #2 (Email 3):
-1. Start with: "Hi [First Name or Team],"
-2. Checking in one last time before wrapping up: Briefly mention you put together the custom site concept for ${params.businessName} to show how much more professional they could look to customers with no obligation.
-3. Low-Friction Question: "Would you be open to taking a quick look at the walkthrough?"`
-}
-
-CRITICAL RULES:
-- NEVER USE EM-DASHES (—) OR EN-DASHES (–). Use standard commas or periods only.
-- Do NOT say "did you get the link I sent" because the link hasn't been sent yet.
-- Sign-off:
+INSTRUCTIONS FOR WRITING THIS FOLLOW-UP:
+1. READ THE PREVIOUS EMAIL CAREFULLY. You MUST reflect the exact context, specific offer, pain point, or concept mentioned in the email above (e.g. if you mentioned their Facebook/Instagram presence, their lack of a website, a specific concept preview, trade/niche details, or quote conversion).
+2. TONE & STRUCTURE:
+   - Casual, conversational, friendly, like a real human following up on a previous message in the same thread.
+   - 2 to 3 sentences maximum. Keep it concise and low-friction.
+   - Stage 1 (Follow-up #1): Friendly check-in connecting back to what you specifically proposed or noticed in your previous note. Ask if they'd like you to send over the preview/details, with zero pressure.
+   - Stage 2 (Follow-up #2): Brief, polite final check-in on the specific idea/concept before assuming it's not a priority right now.
+3. CRITICAL RULES:
+   - NEVER use cookie-cutter generic templates. Every email must be uniquely tailored to what was actually written in the original email body above.
+   - NEVER use em-dashes (—) or en-dashes (–). Use standard commas or periods only.
+   - If in the previous email you offered to send a preview/concept/walkthrough, ask if they would like to see it. Do NOT claim you already attached/sent it if you only offered to send it.
+   - Sign-off:
 Cheers,
 ${senderName}
 LynkDigital
-- Format: Plain text body only (no markdown quotes, no subject line, no placeholders like {first name}).`;
+   - Return ONLY the plaintext email body (no subject line, no placeholders, no markdown code blocks).`;
 
   const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
 
-  try {
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a real human writing natural, casual, friendly follow-up emails without AI clichés or em-dashes.",
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        temperature: 0.7,
-        max_tokens: 300,
-      }),
-    });
+  if (apiKey) {
+    try {
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are an expert human copywriter writing short, highly personalized, contextual cold email follow-ups. You always carefully read and reference the exact context of the previous email. You never use em-dashes (— or –) and never use generic repetitive boilerplate.",
+            },
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+          temperature: 0.7,
+          max_tokens: 300,
+        }),
+      });
 
-    const data = await res.json();
-    if (data.error) {
-      throw new Error(data.error.message || "Groq API error");
+      const data = await res.json();
+      if (data.error) {
+        throw new Error(data.error.message || "Groq API error");
+      }
+
+      const text = data.choices?.[0]?.message?.content?.trim();
+      const cleaned = sanitizeHumanText(text);
+      if (cleaned) return cleaned;
+    } catch (err: any) {
+      console.error("Groq generation error:", err);
     }
-
-    const text = data.choices?.[0]?.message?.content?.trim();
-    const cleaned = sanitizeHumanText(text);
-
-    return (
-      cleaned ||
-      `Hi there,\n\nJust following up on my previous note for ${params.businessName}. Still happy to put together a quick preview if you would like to see it. No rush at all, just let me know if it would be helpful.\n\nCheers,\n${senderName}\nLynkDigital`
-    );
-  } catch (err: any) {
-    console.error("Groq generation error:", err);
-    return `Hi there,\n\nJust following up on my previous note for ${params.businessName}. Still happy to put together a quick preview if you would like to see it. No rush at all, just let me know if it would be helpful.\n\nCheers,\n${senderName}\nLynkDigital`;
   }
+
+  // Fallback if API unavailable
+  return stage === 1
+    ? `Hi ${params.businessName},\n\nJust following up on my previous note regarding ${params.originalSubject.replace(/^Re:\s*/i, "")}. Still happy to put together and send over the concept preview if you'd like to take a look?\n\nCheers,\n${senderName}\nLynkDigital`
+    : `Hi ${params.businessName},\n\nFollowing up briefly on my earlier note regarding ${params.businessName}. Let me know if you'd be open to checking out the concept preview, no worries at all if it's not a priority right now.\n\nCheers,\n${senderName}\nLynkDigital`;
 }
 
 /**

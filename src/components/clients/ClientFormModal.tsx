@@ -531,8 +531,8 @@ export function ClientFormModal({
               {loading
                 ? "Saving..."
                 : clientToEdit
-                ? "Update Client"
-                : "Create Client"}
+                  ? "Update Client"
+                  : "Create Client"}
             </button>
           </div>
         </form>
