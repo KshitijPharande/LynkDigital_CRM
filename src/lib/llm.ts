@@ -26,32 +26,43 @@ export async function generateFollowupDraft(params: {
   if (!apiKey) {
     // Fallback template if no Groq API key configured
     return stage === 1
-      ? `Hi there,\n\nJust following up on my previous note for ${params.businessName}. Still happy to put together a quick preview if you would like to see it. No rush at all, just let me know if it would be helpful.\n\nCheers,\n${senderName}\nLynkDigital`
-      : `Hi there,\n\nFollowing up briefly on my earlier note regarding ${params.businessName}'s website. Just wanted to make sure this didn't get buried in your inbox. Let me know if you'd be open to checking out a quick concept.\n\nCheers,\n${senderName}\nLynkDigital`;
+      ? `Hi ${params.businessName},\n\nThe reason I ask is we've been helping similar trade and local businesses get found on Google and capture direct quote requests, and want to do the same for ${params.businessName} with zero risk.\n\nCan I send over a quick 2-minute video walkthrough of the site concept I put together?\n\nCheers,\n${senderName}\nLynkDigital`
+      : `Hi ${params.businessName},\n\nJust checking in one last time regarding ${params.businessName}. We put together a clean website concept preview with zero obligation, simply to show how to capture more online quote requests.\n\nOpen to checking out the quick 2-minute walkthrough?\n\nCheers,\n${senderName}\nLynkDigital`;
   }
 
-  const prompt = `You are ${senderName} from LynkDigital (a web design & development agency).
-Write a short (2-3 sentences), natural, casual follow-up email (Follow-up #${stage}) to a prospective business who hasn't replied to your initial cold email.
+  const prompt = `You are ${senderName} from LynkDigital (a boutique web design & development studio).
+Write a short (2-3 sentences max), natural, high-converting follow-up email (Follow-up #${stage}) to a prospective business who hasn't replied to your initial cold email.
 
-Original Email You Sent:
-- Recipient / Business: ${params.businessName}
-- Subject: ${params.originalSubject}
-- Original Body:
+Prospect Details:
+- Business / Contact Name: ${params.businessName}
+- Original Subject: ${params.originalSubject}
+- Original Pitch You Sent:
 """
 ${params.originalBody.slice(0, 1000)}
 """
 
-CRITICAL HUMAN WRITING RULES:
-1. NEVER USE EM-DASHES (—) OR EN-DASHES (–). Use standard commas or periods only.
-2. ACCURATE CONTEXT:
-   - If you OFFERED to put together a free preview / walkthrough (but hadn't sent it yet), ask if they would still like you to put one together. DO NOT claim you already sent it!
-   - If you pointed out a specific website bug or issue in the original email, briefly mention it again naturally.
-3. Tone: Casual, friendly, human, zero pressure.
-4. Sign-off:
+FOLLOW-UP FRAMEWORK TO USE:
+${
+  stage === 1
+    ? `For Follow-Up #1 (Email 2):
+1. Start with: "Hi [First Name or Team],"
+2. Hook & Social Proof: "The reason I ask is we've been helping similar trade and local businesses get found on Google and capture direct quote requests, and want to do the same for ${params.businessName} with zero risk."
+3. Low-Friction Call-To-Action (Asking permission): "Can I send over a quick 2-minute video walkthrough of the site concept I put together?"
+4. Keep it ultra punchy and concise.`
+    : `For Follow-Up #2 (Email 3):
+1. Start with: "Hi [First Name or Team],"
+2. Checking in one last time before wrapping up: Briefly mention you put together the custom site concept for ${params.businessName} to show how much more professional they could look to customers with no obligation.
+3. Low-Friction Question: "Would you be open to taking a quick look at the walkthrough?"`
+}
+
+CRITICAL RULES:
+- NEVER USE EM-DASHES (—) OR EN-DASHES (–). Use standard commas or periods only.
+- Do NOT say "did you get the link I sent" because the link hasn't been sent yet.
+- Sign-off:
 Cheers,
 ${senderName}
 LynkDigital
-5. Format: Return ONLY the plain text email body (no markdown backticks, no subject line, no placeholders).`;
+- Format: Plain text body only (no markdown quotes, no subject line, no placeholders like {first name}).`;
 
   const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
 

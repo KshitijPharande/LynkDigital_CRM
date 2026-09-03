@@ -147,7 +147,7 @@ export default function OutreachPage() {
     }
   };
 
-  // Generate Groq AI draft
+  // Generate Groq AI draft (in-place state update without full page reloading)
   const handleGenerateDraft = async (leadId: string, stage: 1 | 2 | 3) => {
     setGeneratingDraft((prev) => ({ ...prev, [leadId]: true }));
     try {
@@ -161,7 +161,20 @@ export default function OutreachPage() {
       if (!res.ok) throw new Error(data.error || "Failed to generate draft");
 
       setDraftEdits((prev) => ({ ...prev, [leadId]: data.draft }));
-      fetchLeads();
+      setLeads((prev) =>
+        prev.map((l) =>
+          l.id === leadId
+            ? {
+                ...l,
+                ...(stage === 1
+                  ? { followupDraft: data.draft }
+                  : stage === 2
+                  ? { followup2Draft: data.draft }
+                  : { breakupDraft: data.draft }),
+              }
+            : l
+        )
+      );
     } catch (err: any) {
       alert(`AI Draft Error: ${err.message}`);
     } finally {
@@ -717,11 +730,14 @@ export default function OutreachPage() {
 
                         {/* Regenerate with Groq AI */}
                         <button
-                          onClick={() =>
-                            handleGenerateDraft(lead.id, activeStage)
-                          }
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleGenerateDraft(lead.id, activeStage);
+                          }}
                           disabled={generatingDraft[lead.id]}
-                          className="text-xs text-brand-400 hover:text-brand-300 font-medium flex items-center gap-1 disabled:opacity-50"
+                          className="text-xs text-brand-400 hover:text-brand-300 font-medium flex items-center gap-1 disabled:opacity-50 transition-colors"
                         >
                           <RefreshCw
                             className={`w-3 h-3 ${
