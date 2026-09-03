@@ -65,7 +65,7 @@ export default function OutreachPage() {
   const [activeTab, setActiveTab] = useState<
     "all" | "due_1" | "due_2" | "breakup" | "replied" | "dead"
   >("all");
-  const [selectedSender, setSelectedSender] = useState("ALL");
+  const [selectedSender, setSelectedSender] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
 
   const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
@@ -78,21 +78,10 @@ export default function OutreachPage() {
   const [sendingEmail, setSendingEmail] = useState<Record<string, boolean>>({});
   const [currentUser, setCurrentUser] = useState<any>(null);
 
-  const fetchLeads = useCallback(
-    async (showLoading = false) => {
+  // Initialize current user and default sender
+  useEffect(() => {
+    async function initUser() {
       try {
-        if (showLoading) setLoading(true);
-        const params = new URLSearchParams({
-          tab: activeTab,
-          sender: selectedSender,
-          search: searchQuery,
-        });
-
-        const res = await fetch(`/api/outreach/leads?${params.toString()}`);
-        const data = await res.json();
-        if (data.leads) setLeads(data.leads);
-        if (data.counts) setCounts(data.counts);
-
         const meRes = await fetch("/api/auth/me");
         const meData = await meRes.json();
         if (meData.user) {
@@ -109,7 +98,37 @@ export default function OutreachPage() {
             return;
           }
           setCurrentUser(u);
+
+          const emailLower = u.email?.toLowerCase().trim() || "";
+          if (emailLower.includes("kshitij")) {
+            setSelectedSender("kshitij.pharande@lynkdigital.co.in");
+          } else if (emailLower.includes("swarada")) {
+            setSelectedSender("swarada@lynkdigital.co.in");
+          } else {
+            setSelectedSender(emailLower);
+          }
         }
+      } catch (err) {
+        console.error("Failed to load user:", err);
+      }
+    }
+    initUser();
+  }, []);
+
+  const fetchLeads = useCallback(
+    async (showLoading = false) => {
+      try {
+        if (showLoading) setLoading(true);
+        const params = new URLSearchParams({
+          tab: activeTab,
+          sender: selectedSender || "",
+          search: searchQuery,
+        });
+
+        const res = await fetch(`/api/outreach/leads?${params.toString()}`);
+        const data = await res.json();
+        if (data.leads) setLeads(data.leads);
+        if (data.counts) setCounts(data.counts);
       } catch (err) {
         console.error("Failed to load leads:", err);
       } finally {
@@ -120,8 +139,10 @@ export default function OutreachPage() {
   );
 
   useEffect(() => {
-    fetchLeads(true);
-  }, [fetchLeads]);
+    if (selectedSender !== "") {
+      fetchLeads(true);
+    }
+  }, [fetchLeads, selectedSender]);
 
   // Zoho Inbox & Sent folder sync
   const handleSync = async () => {
@@ -550,15 +571,21 @@ export default function OutreachPage() {
 
             {/* Sender Filter Toggle */}
             <div className="flex items-center gap-2">
-              <span className="text-xs text-dark-muted hidden sm:inline">Sender:</span>
+              <span className="text-xs text-dark-muted hidden sm:inline">Inbox:</span>
               <select
                 value={selectedSender}
                 onChange={(e) => setSelectedSender(e.target.value)}
                 className="bg-dark-bg border border-dark-border rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-brand-500"
               >
-                <option value="ALL">All Senders (Combined)</option>
-                <option value="kshitij@lynkdigital.co.in">Kshitij Pharande</option>
-                <option value="swarada@lynkdigital.co.in">Swarada</option>
+                <option value="kshitij.pharande@lynkdigital.co.in">
+                  Kshitij Pharande {currentUser?.email?.includes("kshitij") ? "(My Outreach)" : ""}
+                </option>
+                <option value="swarada@lynkdigital.co.in">
+                  Swarada {currentUser?.email?.includes("swarada") ? "(My Outreach)" : ""}
+                </option>
+                {currentUser?.role === "ADMIN" && (
+                  <option value="ALL">All Agency Inboxes (Admin Combined)</option>
+                )}
               </select>
             </div>
           </div>

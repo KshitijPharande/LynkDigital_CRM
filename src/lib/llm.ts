@@ -9,6 +9,63 @@ function sanitizeHumanText(text: string): string {
 }
 
 /**
+ * Helper to extract person's name, trade/niche, and core pain point from original email body.
+ */
+function extractEmailContext(businessName: string, subject: string, body: string) {
+  const plain = body.replace(/<[^>]+>/g, " ").replace(/&[a-z]+;/gi, " ").replace(/\s+/g, " ");
+  
+  // 1. Extract greeting name (e.g. "Hi Rob", "Hi Nathan", "Hi Eric", "Hi Gardenia team")
+  let name = businessName;
+  const greetingMatch = plain.match(/(?:Hi|Hello|Hey)\s+([A-Z][a-zA-Z\s&'-]+?)(?:,|\.|\n|<|\band\b)/i);
+  if (greetingMatch && greetingMatch[1] && greetingMatch[1].length < 35) {
+    name = greetingMatch[1].trim();
+  }
+
+  // 2. Extract trade / niche (landscaping, grounds care, roofing, gardening, tree care, etc.)
+  let trade = "trade";
+  const tradeKeywords = [
+    "landscaping", "landscaper", "grounds care", "lawn care", "gardening",
+    "roofing", "tree care", "tree experts", "painting", "plumbing",
+    "electrical", "builder", "construction", "property maintenance", "spouting", "guttering"
+  ];
+  for (const kw of tradeKeywords) {
+    if (plain.toLowerCase().includes(kw) || subject.toLowerCase().includes(kw) || businessName.toLowerCase().includes(kw)) {
+      trade = kw;
+      break;
+    }
+  }
+
+  // 3. Extract specific pain point / hook
+  let reasonHook = `The reason I ask is we've been helping other ${trade} businesses get found on Google and capture direct quote requests, and I'd love to show you how with zero risk.`;
+
+  if (
+    plain.toLowerCase().includes("don't currently have a website") ||
+    plain.toLowerCase().includes("dont currently have a website") ||
+    plain.toLowerCase().includes("no website") ||
+    plain.toLowerCase().includes("just your facebook") ||
+    plain.toLowerCase().includes("facebook and instagram")
+  ) {
+    reasonHook = `The reason I ask is I noticed you're relying mostly on social media right now without a dedicated website, so local customers searching Google for ${trade} are missing your work.`;
+  } else if (
+    plain.toLowerCase().includes("wordpress") ||
+    plain.toLowerCase().includes("quote button") ||
+    plain.toLowerCase().includes("icon") ||
+    plain.toLowerCase().includes("bounce")
+  ) {
+    reasonHook = `The reason I ask is I noticed your current site is missing an instant quote button and could be converting a lot more mobile visitors into direct inquiries.`;
+  } else if (
+    plain.toLowerCase().includes("before-and-after") ||
+    plain.toLowerCase().includes("photos") ||
+    plain.toLowerCase().includes("showcase") ||
+    plain.toLowerCase().includes("portfolio")
+  ) {
+    reasonHook = `The reason I ask is we've been helping other ${trade} specialists showcase their before-and-after project photos cleanly so higher-budget clients reach out directly.`;
+  }
+
+  return { name, trade, reasonHook };
+}
+
+/**
  * Generates contextual, natural Follow-up 1 or Follow-up 2 email draft using Groq AI.
  */
 export async function generateFollowupDraft(params: {
@@ -20,13 +77,21 @@ export async function generateFollowupDraft(params: {
   stage?: 1 | 2;
 }): Promise<string> {
   const apiKey = process.env.GROQ_API_KEY;
-  const senderName = params.senderName || "Kshitij Pharande";
+  const senderName = params.senderName || "Kshitij";
   const stage = params.stage || 1;
+
+  const { name, trade, reasonHook } = extractEmailContext(
+    params.businessName,
+    params.originalSubject,
+    params.originalBody
+  );
 
   const prompt = `You are ${senderName} from LynkDigital, writing a short, natural, high-converting Follow-Up #${stage} email to a prospect in the same thread (Re:).
 
 READ AND ANALYZE THE EXACT EMAIL PREVIOUSLY SENT:
 - Recipient / Business: ${params.businessName}
+- Contact / Greeting Name: ${name}
+- Trade / Niche: ${trade}
 - Original Subject: ${params.originalSubject}
 - Original Email Body:
 """
@@ -35,20 +100,16 @@ ${params.originalBody}
 
 FOLLOW-UP FRAMEWORK TO EXECUTE:
 1. GREETING:
-   - "Hi [First Name or Team name]," (e.g. "Hi Rob," or "Hi Gardenia team," or "Hi ${params.businessName},").
+   - "Hi ${name},"
 
 2. THE "REASON I ASK" HOOK + SPECIFIC PAIN POINT:
-   - Start the next sentence with: "The reason I ask is..."
-   - Then immediately articulate the specific observation or pain point from the previous email.
-   - Examples based on context:
-     * If they only have Facebook/Instagram and no website: "The reason I ask is I noticed you're relying mostly on social media right now, which means local homeowners searching Google for [service] in [location] miss your work."
-     * If their site is outdated or missing a quote button: "The reason I ask is I noticed your current site is missing an instant quote button and still has the default WordPress icon, which can let potential leads slip away."
-     * If they have great photos: "The reason I ask is we've been helping other [industry] businesses showcase their project photos so higher-budget clients reach out directly."
+   - Start with: "The reason I ask is..."
+   - Directly state the specific observation or pain point from the previous email.
+   - Example based on this lead's context: "${reasonHook}"
 
 3. LOW-FRICTION MICRO-ASK (Permission for 2-min walkthrough):
-   - Ask permission to send the walkthrough/concept:
-     * Stage 1: "Can I send over a quick 2-minute video walkthrough of the site concept I put together showing how you could capture those quotes?"
-     * Stage 2: "Just checking in one last time, would you be open to checking out the quick 2-minute video walkthrough I put together for ${params.businessName}?"
+   - Stage 1: "Can I send over a quick 2-minute video walkthrough of the site concept I put together showing how you could capture those quotes?"
+   - Stage 2: "Just checking in one last time, would you be open to checking out the quick 2-minute video walkthrough I put together for ${params.businessName}?"
 
 4. SIGN-OFF:
 Cheers,
@@ -101,10 +162,10 @@ CRITICAL RULES:
     }
   }
 
-  // Fallback if API unavailable
+  // Highly contextual rule-based fallback
   return stage === 1
-    ? `Hi ${params.businessName},\n\nThe reason I ask is we've been helping similar trade and local businesses capture more direct quote requests on Google, and I'd love to show you how with zero risk.\n\nCan I send over a quick 2-minute video walkthrough of the site concept I put together?\n\nCheers,\n${senderName}\nLynkDigital`
-    : `Hi ${params.businessName},\n\nJust checking in one last time, would you be open to checking out the quick 2-minute video walkthrough of the site concept I put together for ${params.businessName}?\n\nCheers,\n${senderName}\nLynkDigital`;
+    ? `Hi ${name},\n\n${reasonHook}\n\nCan I send over a quick 2-minute video walkthrough of the site concept I put together?\n\nCheers,\n${senderName}\nLynkDigital`
+    : `Hi ${name},\n\nJust checking in one last time, would you be open to checking out the quick 2-minute video walkthrough of the site concept I put together for ${params.businessName}?\n\nCheers,\n${senderName}\nLynkDigital`;
 }
 
 /**

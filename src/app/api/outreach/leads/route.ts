@@ -19,9 +19,18 @@ export async function GET(request: Request) {
 
     const where: any = {};
 
-    // Filter by sender email
-    if (sender && sender !== "ALL") {
-      where.senderEmail = sender.toLowerCase().trim();
+    // Filter by sender email (Isolated per user)
+    const effectiveSender =
+      sender || (user.role === "ADMIN" ? user.email.toLowerCase().trim() : user.email.toLowerCase().trim());
+
+    if (effectiveSender && effectiveSender !== "ALL") {
+      if (effectiveSender.includes("kshitij")) {
+        where.senderEmail = { contains: "kshitij", mode: "insensitive" };
+      } else if (effectiveSender.includes("swarada")) {
+        where.senderEmail = { contains: "swarada", mode: "insensitive" };
+      } else {
+        where.senderEmail = { equals: effectiveSender.toLowerCase().trim(), mode: "insensitive" };
+      }
     }
 
     // Search by business name or email
@@ -70,10 +79,16 @@ export async function GET(request: Request) {
       orderBy: [{ dateSent: "desc" }, { createdAt: "desc" }],
     });
 
-    // Counts scoped by sender if filtered
+    // Counts scoped by sender
     const countWhere: any = {};
-    if (sender && sender !== "ALL") {
-      countWhere.senderEmail = sender.toLowerCase().trim();
+    if (effectiveSender && effectiveSender !== "ALL") {
+      if (effectiveSender.includes("kshitij")) {
+        countWhere.senderEmail = { contains: "kshitij", mode: "insensitive" };
+      } else if (effectiveSender.includes("swarada")) {
+        countWhere.senderEmail = { contains: "swarada", mode: "insensitive" };
+      } else {
+        countWhere.senderEmail = { equals: effectiveSender.toLowerCase().trim(), mode: "insensitive" };
+      }
     }
 
     // Live counts for each specific pipeline stage
