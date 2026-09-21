@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "lynkdigital-crm-super-secure-production-jwt-key-2026"
+  process.env.JWT_SECRET || "lynkdigital-crm-jwt-secret-key-32-chars-long-secure"
 );
 
 const COOKIE_NAME = "lynk_session_token";

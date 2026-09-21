@@ -170,7 +170,7 @@ model Lead {
   // Lifecycle Status:
   // pending | due_for_followup_1 | followup_1_drafted | followup_1_sent |
   // due_for_followup_2 | followup_2_drafted | followup_2_sent |
-  // due_for_breakup | breakup_drafted | breakup_sent | replied | closed
+  // due_for_breakup | breakup_drafted | breakup_sent | replied | demo_pending | demo_sent | manual_reply_needed | closed | dead
   status             String    @default("pending")
   
   followupDraft      String?
@@ -179,6 +179,12 @@ model Lead {
   followup2SentDate  DateTime?
   breakupDraft       String?
   breakupSentDate    DateTime?
+  
+  demoDraft          String?
+  mockupUrl          String?
+  demoSentDate       DateTime?
+  replySentiment     String?   // positive | neutral | negative
+  repliedAtStep      String?   // first_email | followup_1 | followup_2 | breakup
   
   notes              String?
   createdAt          DateTime  @default(now())

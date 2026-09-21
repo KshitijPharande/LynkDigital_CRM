@@ -17,15 +17,16 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 export default function CalendarsPage() {
+  const { user: currentUser } = useAuth();
   const [calendars, setCalendars] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [calendarToEdit, setCalendarToEdit] = useState<any | null>(null);
-  const [currentUser, setCurrentUser] = useState<any>(null);
 
   const fetchCalendars = async () => {
     try {
@@ -33,10 +34,6 @@ export default function CalendarsPage() {
       const res = await fetch("/api/calendars");
       const data = await res.json();
       if (data.calendars) setCalendars(data.calendars);
-
-      const meRes = await fetch("/api/auth/me");
-      const meData = await meRes.json();
-      if (meData.user) setCurrentUser(meData.user);
     } catch (err) {
       console.error("Error loading calendars:", err);
     } finally {

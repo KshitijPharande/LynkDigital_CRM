@@ -144,9 +144,16 @@ function LoginForm() {
   );
 }
 
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
+
 export default function LoginPage() {
   return (
     <div className="min-h-screen bg-dark-bg flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Top Right Theme Toggle */}
+      <div className="absolute top-6 right-6 z-20">
+        <ThemeToggle />
+      </div>
+
       {/* Ambient background glow */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[350px] bg-gradient-to-tr from-brand-600/15 via-accent-cyan/10 to-purple-600/15 blur-[120px] pointer-events-none rounded-full" />
 

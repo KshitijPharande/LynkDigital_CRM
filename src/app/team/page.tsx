@@ -17,14 +17,15 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 export default function TeamPage() {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDept, setSelectedDept] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState<any>(null);
 
   const fetchTeam = async () => {
     try {
@@ -32,10 +33,6 @@ export default function TeamPage() {
       const res = await fetch("/api/team");
       const data = await res.json();
       if (data.users) setUsers(data.users);
-
-      const meRes = await fetch("/api/auth/me");
-      const meData = await meRes.json();
-      if (meData.user) setCurrentUser(meData.user);
     } catch (err) {
       console.error("Error loading team:", err);
     } finally {

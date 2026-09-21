@@ -8,10 +8,11 @@ import {
   Shield,
   UserCheck,
   ExternalLink,
-  ChevronDown,
+  Menu,
 } from "lucide-react";
 import { CurrentUser } from "@/types";
 import { CommandSearchModal } from "@/components/search/CommandSearchModal";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 interface TopNavbarProps {
   currentUser?: CurrentUser | null;
@@ -20,6 +21,7 @@ interface TopNavbarProps {
   onOpenNewClientModal?: () => void;
   onOpenLeaveModal?: () => void;
   onLogout?: () => void;
+  onToggleMobileMenu?: () => void;
 }
 
 export function TopNavbar({
@@ -28,24 +30,39 @@ export function TopNavbar({
   subtitle,
   onOpenNewClientModal,
   onOpenLeaveModal,
+  onToggleMobileMenu,
 }: TopNavbarProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const isAdmin = currentUser?.role === "ADMIN";
 
   return (
     <>
-      <header className="h-16 bg-dark-bg/80 backdrop-blur-md border-b border-dark-border px-6 flex items-center justify-between sticky top-0 z-20">
-        {/* Title / Breadcrumb */}
-        <div>
-          <h1 className="text-base font-semibold text-white tracking-tight">
-            {title || "Overview"}
-          </h1>
-          {subtitle && (
-            <p className="text-xs text-dark-muted hidden sm:block">{subtitle}</p>
+      <header className="h-16 bg-dark-bg/80 backdrop-blur-md border-b border-dark-border px-4 sm:px-6 flex items-center justify-between sticky top-0 z-20">
+        {/* Left: Mobile Menu Trigger & Title / Breadcrumb */}
+        <div className="flex items-center gap-3 min-w-0">
+          {onToggleMobileMenu && (
+            <button
+              onClick={onToggleMobileMenu}
+              className="md:hidden p-2 rounded-xl bg-dark-card border border-dark-border text-dark-muted hover:text-white transition-colors shrink-0"
+              title="Open Navigation Menu"
+            >
+              <Menu className="w-4 h-4" />
+            </button>
           )}
+
+          <div className="min-w-0">
+            <h1 className="text-sm sm:text-base font-semibold text-white tracking-tight truncate">
+              {title || "Overview"}
+            </h1>
+            {subtitle && (
+              <p className="text-[11px] sm:text-xs text-dark-muted hidden sm:block truncate">
+                {subtitle}
+              </p>
+            )}
+          </div>
         </div>
 
-        {/* Middle Search Bar Trigger */}
+        {/* Middle Search Bar Trigger (Desktop) */}
         <div
           onClick={() => setIsSearchOpen(true)}
           className="hidden md:flex items-center w-80 relative cursor-pointer group"
@@ -60,10 +77,19 @@ export function TopNavbar({
         </div>
 
         {/* Right Controls & Quick Actions */}
-        <div className="flex items-center gap-3">
-          {/* User Role Badge */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {/* Mobile Search Icon Button */}
+          <button
+            onClick={() => setIsSearchOpen(true)}
+            className="md:hidden p-2 rounded-xl bg-dark-card border border-dark-border text-dark-muted hover:text-white transition-colors"
+            title="Search CRM"
+          >
+            <Search className="w-4 h-4" />
+          </button>
+
+          {/* User Role Badge (Desktop only on small screens) */}
           {currentUser && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-dark-card border border-dark-border text-xs text-gray-300">
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-dark-card border border-dark-border text-xs text-gray-300">
               {isAdmin ? (
                 <Shield className="w-3.5 h-3.5 text-brand-400" />
               ) : (
@@ -82,7 +108,7 @@ export function TopNavbar({
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-glow transition-all active:scale-95"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>New Client</span>
+              <span className="hidden sm:inline">New Client</span>
             </button>
           )}
 
@@ -92,9 +118,12 @@ export function TopNavbar({
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-glowEmerald transition-all active:scale-95"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Apply Leave</span>
+              <span className="hidden sm:inline">Apply Leave</span>
             </button>
           )}
+
+          {/* Dark / Light Theme Toggle */}
+          <ThemeToggle />
 
           {/* Notification Bell */}
           <button

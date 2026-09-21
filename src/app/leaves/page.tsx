@@ -16,25 +16,20 @@ import {
   Search,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 export default function LeavesPage() {
+  const { user: currentUser } = useAuth();
   const [leaves, setLeaves] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState("ALL");
   const [viewAll, setViewAll] = useState(true);
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
   const [leaveToReview, setLeaveToReview] = useState<any | null>(null);
-  const [currentUser, setCurrentUser] = useState<any>(null);
 
   const fetchLeaves = async () => {
     try {
       setLoading(true);
-      const meRes = await fetch("/api/auth/me");
-      const meData = await meRes.json();
-      if (meData.user) {
-        setCurrentUser(meData.user);
-      }
-
       const res = await fetch(`/api/leaves?viewAll=${viewAll}`);
       const data = await res.json();
       if (data.leaves) setLeaves(data.leaves);

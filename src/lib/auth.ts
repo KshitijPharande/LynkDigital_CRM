@@ -15,6 +15,10 @@ export async function signToken(payload: {
   email: string;
   role: string;
   name: string;
+  designation?: string;
+  department?: string;
+  avatar?: string | null;
+  phone?: string | null;
 }): Promise<string> {
   return new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
@@ -26,11 +30,15 @@ export async function signToken(payload: {
 export async function verifyToken(token: string) {
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
-    return payload as {
+    return payload as unknown as {
       userId: string;
       email: string;
       role: "ADMIN" | "EMPLOYEE";
       name: string;
+      designation?: string;
+      department?: string;
+      avatar?: string | null;
+      phone?: string | null;
     };
   } catch {
     return null;
@@ -46,6 +54,21 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     const payload = await verifyToken(token);
     if (!payload?.userId) return null;
 
+    // Instant zero-database-latency return from cryptographically verified JWT (< 1ms)
+    if (payload.email && payload.name && payload.role) {
+      return {
+        id: payload.userId,
+        email: payload.email,
+        name: payload.name,
+        role: payload.role as "ADMIN" | "EMPLOYEE",
+        designation: payload.designation || "Team Member",
+        department: payload.department || "General",
+        avatar: payload.avatar || null,
+        phone: payload.phone || null,
+      };
+    }
+
+    // Fallback for legacy tokens without embedded profile fields
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
       select: {
@@ -104,6 +127,10 @@ export async function authenticateWithCredentials(
     email: user.email,
     role: user.role,
     name: user.name,
+    designation: user.designation,
+    department: user.department,
+    avatar: user.avatar,
+    phone: user.phone,
   });
 
   return {
@@ -116,6 +143,8 @@ export async function authenticateWithCredentials(
       role: user.role,
       designation: user.designation,
       department: user.department,
+      avatar: user.avatar,
+      phone: user.phone,
     },
   };
 }

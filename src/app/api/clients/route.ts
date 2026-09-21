@@ -42,7 +42,9 @@ export async function GET(request: Request) {
           select: { id: true, name: true, email: true, designation: true },
         },
         teamAssignments: {
-          include: {
+          select: {
+            id: true,
+            role: true,
             user: {
               select: { id: true, name: true, email: true, designation: true, role: true },
             },
@@ -51,6 +53,15 @@ export async function GET(request: Request) {
         contentCalendars: {
           take: 1,
           orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            month: true,
+            year: true,
+            googleSheetUrl: true,
+            status: true,
+            approvalStatus: true,
+            nextDeadline: true,
+          },
         },
         _count: {
           select: {

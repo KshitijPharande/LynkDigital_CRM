@@ -10,8 +10,25 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+        background: "var(--crm-bg)",
+        foreground: "var(--crm-text)",
+        // Brand Identity (extracted from main website)
+        cream: {
+          DEFAULT: "#EDEAE5",
+          dark: "#E3DFD9",
+          light: "#F5F3F0",
+        },
+        navy: {
+          DEFAULT: "#2D3561",
+          dark: "#1F2744",
+          light: "#3D4575",
+        },
+        lavender: {
+          DEFAULT: "#A8ACC4",
+          light: "#C5C8D9",
+          dark: "#8B8FA8",
+        },
+        charcoal: "#3D3D3D",
         brand: {
           50: "#eff6ff",
           100: "#dbeafe",
@@ -26,13 +43,13 @@ const config: Config = {
           950: "#172554",
         },
         dark: {
-          bg: "#0B0F17",
-          card: "#111827",
-          cardHover: "#182234",
-          border: "#1F2937",
-          borderLight: "#374151",
-          muted: "#9CA3AF",
-          subtle: "#6B7280",
+          bg: "var(--crm-bg)",
+          card: "var(--crm-card)",
+          cardHover: "var(--crm-card-hover)",
+          border: "var(--crm-border)",
+          borderLight: "var(--crm-border-light)",
+          muted: "var(--crm-muted)",
+          subtle: "var(--crm-subtle)",
         },
         accent: {
           cyan: "#06B6D4",
@@ -42,10 +59,16 @@ const config: Config = {
           violet: "#8B5CF6",
         }
       },
+      fontFamily: {
+        heading: ["Cormorant Garamond", "Georgia", "serif"],
+        body: ["Inter", "system-ui", "sans-serif"],
+      },
       boxShadow: {
         glass: "0 8px 32px 0 rgba(0, 0, 0, 0.37)",
-        glow: "0 0 20px -5px rgba(59, 130, 246, 0.4)",
+        glow: "0 0 20px -5px rgba(45, 53, 97, 0.3)",
         glowEmerald: "0 0 20px -5px rgba(16, 185, 129, 0.4)",
+        card: "var(--crm-shadow-card)",
+        cardHover: "var(--crm-shadow-hover)",
       },
       borderRadius: {
         'xl': '0.875rem',

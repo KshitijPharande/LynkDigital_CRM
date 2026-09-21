@@ -13,21 +13,18 @@ import {
   AlertTriangle,
   Info,
 } from "lucide-react";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { formatDateTime } from "@/lib/utils";
 
 export default function AnnouncementsPage() {
+  const { user: currentUser } = useAuth();
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState<any>(null);
 
   const fetchAnnouncements = async () => {
     try {
       setLoading(true);
-      const meRes = await fetch("/api/auth/me");
-      const meData = await meRes.json();
-      if (meData.user) setCurrentUser(meData.user);
-
       const res = await fetch("/api/announcements");
       const data = await res.json();
       if (data.announcements) setAnnouncements(data.announcements);

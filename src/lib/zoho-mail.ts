@@ -124,7 +124,10 @@ export async function getMessageContent(
 export interface DetectedReply {
   email: string;
   isDeclined: boolean;
+  subject?: string;
   snippet?: string;
+  receivedTime?: string;
+  messageId?: string;
 }
 
 export async function checkInboxForReplies(
@@ -165,6 +168,9 @@ export async function checkInboxForReplies(
     "not at this stage",
     "not right now",
     "not at this time",
+    "stop emailing",
+    "wrong person",
+    "take me off",
   ];
 
   for (const msg of messages) {
@@ -178,7 +184,10 @@ export async function checkInboxForReplies(
       replies.set(sender, {
         email: sender,
         isDeclined,
-        snippet: (msg as any).summary || msg.subject,
+        subject: msg.subject || "",
+        snippet: (msg as any).summary || msg.subject || "",
+        receivedTime: msg.receivedTime || msg.sentDateInGMT,
+        messageId: msg.messageId,
       });
     }
   }

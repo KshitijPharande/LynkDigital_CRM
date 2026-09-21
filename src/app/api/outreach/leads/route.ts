@@ -20,16 +20,15 @@ export async function GET(request: Request) {
     const where: any = {};
 
     // Filter by sender email (Isolated per user)
-    const effectiveSender =
-      sender || (user.role === "ADMIN" ? user.email.toLowerCase().trim() : user.email.toLowerCase().trim());
+    const rawSender = sender && sender.trim() !== "" ? sender.trim() : user.email.toLowerCase().trim();
 
-    if (effectiveSender && effectiveSender !== "ALL") {
-      if (effectiveSender.includes("kshitij")) {
+    if (rawSender !== "ALL") {
+      if (rawSender.toLowerCase().includes("kshitij")) {
         where.senderEmail = { contains: "kshitij", mode: "insensitive" };
-      } else if (effectiveSender.includes("swarada")) {
+      } else if (rawSender.toLowerCase().includes("swarada")) {
         where.senderEmail = { contains: "swarada", mode: "insensitive" };
       } else {
-        where.senderEmail = { equals: effectiveSender.toLowerCase().trim(), mode: "insensitive" };
+        where.senderEmail = { equals: rawSender.toLowerCase().trim(), mode: "insensitive" };
       }
     }
 
@@ -44,6 +43,13 @@ export async function GET(request: Request) {
 
     // Tab-based filtering
     switch (tab) {
+      case "pending":
+      case "waiting":
+        where.status = "pending";
+        break;
+      case "demo_pending":
+        where.status = "demo_pending";
+        break;
       case "due_1":
         where.status = {
           in: ["due_for_followup_1", "followup_1_drafted"],
@@ -60,14 +66,16 @@ export async function GET(request: Request) {
         };
         break;
       case "replied":
-        where.status = "replied";
+        where.status = {
+          in: ["replied", "demo_pending", "demo_sent", "manual_reply_needed"],
+        };
         break;
       case "dead":
         where.status = { in: ["dead", "closed"] };
         break;
       case "sent":
         where.status = {
-          in: ["followup_1_sent", "followup_2_sent", "breakup_sent", "pending"],
+          in: ["followup_1_sent", "followup_2_sent", "breakup_sent", "demo_sent", "pending"],
         };
         break;
       default:
@@ -81,20 +89,26 @@ export async function GET(request: Request) {
 
     // Counts scoped by sender
     const countWhere: any = {};
-    if (effectiveSender && effectiveSender !== "ALL") {
-      if (effectiveSender.includes("kshitij")) {
+    if (rawSender !== "ALL") {
+      if (rawSender.toLowerCase().includes("kshitij")) {
         countWhere.senderEmail = { contains: "kshitij", mode: "insensitive" };
-      } else if (effectiveSender.includes("swarada")) {
+      } else if (rawSender.toLowerCase().includes("swarada")) {
         countWhere.senderEmail = { contains: "swarada", mode: "insensitive" };
       } else {
-        countWhere.senderEmail = { equals: effectiveSender.toLowerCase().trim(), mode: "insensitive" };
+        countWhere.senderEmail = { equals: rawSender.toLowerCase().trim(), mode: "insensitive" };
       }
     }
 
     // Live counts for each specific pipeline stage
-    const [totalCount, due1Count, due2Count, breakupCount, repliedCount, deadCount] =
+    const [totalCount, pendingCount, demoPendingCount, due1Count, due2Count, breakupCount, repliedCount, deadCount] =
       await Promise.all([
         prisma.lead.count({ where: countWhere }),
+        prisma.lead.count({
+          where: { ...countWhere, status: "pending" },
+        }),
+        prisma.lead.count({
+          where: { ...countWhere, status: "demo_pending" },
+        }),
         prisma.lead.count({
           where: {
             ...countWhere,
@@ -114,22 +128,41 @@ export async function GET(request: Request) {
           },
         }),
         prisma.lead.count({
-          where: { ...countWhere, status: "replied" },
+          where: {
+            ...countWhere,
+            status: { in: ["replied", "demo_pending", "demo_sent", "manual_reply_needed"] },
+          },
         }),
         prisma.lead.count({
           where: { ...countWhere, status: { in: ["dead", "closed"] } },
         }),
       ]);
 
+    // Sequence reply step conversion stats
+    const [stepFirstEmail, stepFU1, stepFU2, stepBreakup] = await Promise.all([
+      prisma.lead.count({ where: { ...countWhere, repliedAtStep: "first_email" } }),
+      prisma.lead.count({ where: { ...countWhere, repliedAtStep: "followup_1" } }),
+      prisma.lead.count({ where: { ...countWhere, repliedAtStep: "followup_2" } }),
+      prisma.lead.count({ where: { ...countWhere, repliedAtStep: "breakup" } }),
+    ]);
+
     return NextResponse.json({
       leads,
       counts: {
         total: totalCount,
+        pending: pendingCount,
+        demoPending: demoPendingCount,
         due1: due1Count,
         due2: due2Count,
         breakup: breakupCount,
         replied: repliedCount,
         dead: deadCount,
+      },
+      stats: {
+        firstEmailReplies: stepFirstEmail,
+        fu1Replies: stepFU1,
+        fu2Replies: stepFU2,
+        breakupReplies: stepBreakup,
       },
     });
   } catch (error) {

@@ -28,17 +28,34 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Lead not found" }, { status: 404 });
     }
 
+    const stageNum = typeof stage === "string" && stage === "demo" ? 4 : Number(stage) || 1;
+
     const emailBody =
       content ||
-      (stage === 1
+      (stageNum === 1
         ? lead.followupDraft
-        : stage === 2
+        : stageNum === 2
         ? lead.followup2Draft
-        : lead.breakupDraft);
+        : stageNum === 3
+        ? lead.breakupDraft
+        : lead.demoDraft);
 
-    if (!emailBody) {
+    if (!emailBody || !emailBody.trim()) {
       return NextResponse.json(
         { error: "No email body content to send" },
+        { status: 400 }
+      );
+    }
+
+    // STRICT SAFETY CHECK: Block sending if draft contains unresolved placeholders
+    const placeholderMatches = emailBody.match(/\{\{[^{}]+\}\}/g);
+    if (placeholderMatches && placeholderMatches.length > 0) {
+      const distinctPlaceholders = Array.from(new Set(placeholderMatches)).join(", ");
+      return NextResponse.json(
+        {
+          error: `Blocked Sending: Unresolved placeholder(s) detected [${distinctPlaceholders}]. Please paste the actual mockup link or fill in the placeholders before sending.`,
+          unresolvedPlaceholders: placeholderMatches,
+        },
         { status: 400 }
       );
     }
@@ -69,18 +86,22 @@ export async function POST(request: Request) {
     const now = new Date();
     const updateData: any = {};
 
-    if (stage === 1) {
+    if (stageNum === 1) {
       updateData.status = "followup_1_sent";
       updateData.followupSentDate = now;
       updateData.followupDraft = emailBody;
-    } else if (stage === 2) {
+    } else if (stageNum === 2) {
       updateData.status = "followup_2_sent";
       updateData.followup2SentDate = now;
       updateData.followup2Draft = emailBody;
-    } else if (stage === 3) {
+    } else if (stageNum === 3) {
       updateData.status = "breakup_sent";
       updateData.breakupSentDate = now;
       updateData.breakupDraft = emailBody;
+    } else if (stageNum === 4) {
+      updateData.status = "demo_sent";
+      updateData.demoSentDate = now;
+      updateData.demoDraft = emailBody;
     }
 
     const updatedLead = await prisma.lead.update({
@@ -89,12 +110,19 @@ export async function POST(request: Request) {
     });
 
     // Log action in Activity Log
+    const stageLabel =
+      stageNum === 4
+        ? "Demo Mockup Email"
+        : stageNum === 3
+        ? "Break-Up Email"
+        : `Follow-up #${stageNum}`;
+
     await prisma.activityLog.create({
       data: {
-        action: "OUTREACH_FOLLOWUP_SENT",
+        action: stageNum === 4 ? "OUTREACH_DEMO_SENT" : "OUTREACH_FOLLOWUP_SENT",
         entityType: "LEAD",
         entityId: lead.id,
-        details: `Sent Follow-up #${stage} to ${lead.businessName} (${lead.email}) from ${lead.senderEmail}`,
+        details: `Sent ${stageLabel} to ${lead.businessName} (${lead.email}) from ${lead.senderEmail}`,
         userId: user.id,
       },
     });

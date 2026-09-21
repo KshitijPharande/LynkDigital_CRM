@@ -19,8 +19,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 export default function ClientsPage() {
+  const { user: currentUser } = useAuth();
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState("ALL");
@@ -28,7 +30,6 @@ export default function ClientsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [clientToEdit, setClientToEdit] = useState<any | null>(null);
-  const [currentUser, setCurrentUser] = useState<any>(null);
 
   const fetchClients = async () => {
     try {
@@ -36,10 +37,6 @@ export default function ClientsPage() {
       const res = await fetch("/api/clients");
       const data = await res.json();
       if (data.clients) setClients(data.clients);
-
-      const meRes = await fetch("/api/auth/me");
-      const meData = await meRes.json();
-      if (meData.user) setCurrentUser(meData.user);
     } catch (err) {
       console.error("Error loading clients:", err);
     } finally {

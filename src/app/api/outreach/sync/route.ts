@@ -12,7 +12,12 @@ import {
   parseBusinessName,
   isOutreachEmail,
 } from "@/lib/zoho-mail";
-import { generateFollowupDraft, generateBreakupDraft } from "@/lib/llm";
+import {
+  generateFollowupDraft,
+  generateBreakupDraft,
+  generateDemoDraft,
+  classifyReply,
+} from "@/lib/llm";
 
 export const dynamic = "force-dynamic";
 
@@ -58,7 +63,16 @@ export async function POST(request: Request) {
       if (!cleanedEmail || cleanedEmail.includes("lynkdigital.co.in")) continue;
 
       try {
-        // Fetch message body
+        // Fast-check: if lead already exists in DB, skip fetching full message body over network
+        const existingLead = await prisma.lead.findFirst({
+          where: { email: cleanedEmail },
+        });
+
+        if (existingLead) {
+          continue;
+        }
+
+        // Fetch message body only for NEW prospective leads
         const { content } = await getMessageContent(
           accountId,
           sentFolderId,
@@ -76,25 +90,6 @@ export async function POST(request: Request) {
             ? new Date(msg.sentDateInGMT)
             : new Date(Number(msg.sentDateInGMT));
           if (!isNaN(parsed.getTime())) dateSent = parsed;
-        }
-
-        // Deduplication by Email: 1 Lead card per prospective business
-        const existingLead = await prisma.lead.findFirst({
-          where: { email: cleanedEmail },
-        });
-
-        if (existingLead) {
-          // If we found a better name from subject/body, update it without duplicating
-          if (
-            existingLead.businessName === "Prospect" &&
-            businessName !== "Prospect"
-          ) {
-            await prisma.lead.update({
-              where: { id: existingLead.id },
-              data: { businessName },
-            });
-          }
-          continue;
         }
 
         await prisma.lead.create({
@@ -119,7 +114,9 @@ export async function POST(request: Request) {
     // 3. Scan Inbox for replies across all active prospects
     const activeLeads = await prisma.lead.findMany({
       where: {
-        status: { notIn: ["replied", "dead", "closed"] },
+        status: {
+          notIn: ["demo_pending", "demo_sent", "manual_reply_needed", "replied", "closed", "dead"],
+        },
       },
     });
 
@@ -133,45 +130,105 @@ export async function POST(request: Request) {
     );
 
     let repliedCount = 0;
-    let declinedCount = 0;
+    let positiveCount = 0;
+    let neutralCount = 0;
+    let negativeCount = 0;
 
-    for (const [email, info] of Array.from(repliesMap.entries())) {
-      if (info.isDeclined) {
-        await prisma.lead.updateMany({
-          where: { email: { equals: email, mode: "insensitive" } },
+    for (const lead of activeLeads) {
+      const replyInfo = repliesMap.get(lead.email.toLowerCase().trim());
+      if (!replyInfo) continue;
+
+      // A. Determine which step of the sequence the reply came from
+      let repliedAtStep = "first_email";
+      if (lead.breakupSentDate) {
+        repliedAtStep = "breakup";
+      } else if (lead.followup2SentDate) {
+        repliedAtStep = "followup_2";
+      } else if (lead.followupSentDate) {
+        repliedAtStep = "followup_1";
+      }
+
+      // B. Classify the sentiment
+      let sentiment: "positive" | "neutral" | "negative" = "neutral";
+      if (replyInfo.isDeclined) {
+        sentiment = "negative";
+      } else {
+        sentiment = await classifyReply({
+          replyText: replyInfo.snippet || replyInfo.subject || "",
+          subject: replyInfo.subject || lead.originalSubject,
+        });
+      }
+
+      // C. Take action based on classification
+      if (sentiment === "positive") {
+        // Auto-draft Demo email with {{MOCKUP_LINK}}
+        const demoDraft = await generateDemoDraft({
+          businessName: lead.businessName,
+          originalSubject: lead.originalSubject,
+          originalBody: lead.originalBody,
+          recipientEmail: lead.email,
+          senderName: lead.senderName,
+          region: lead.region,
+        });
+
+        await prisma.lead.update({
+          where: { id: lead.id },
           data: {
-            status: "dead",
-            notes: "Prospect declined / not interested in online presence.",
+            status: "demo_pending",
+            replySentiment: "positive",
+            repliedAtStep,
+            demoDraft,
+            notes: replyInfo.snippet ? `Positive reply received: "${replyInfo.snippet}"` : undefined,
           },
         });
-        declinedCount++;
-      } else {
-        await prisma.lead.updateMany({
-          where: { email: { equals: email, mode: "insensitive" } },
-          data: { status: "replied" },
+        positiveCount++;
+      } else if (sentiment === "negative") {
+        await prisma.lead.update({
+          where: { id: lead.id },
+          data: {
+            status: "closed",
+            replySentiment: "negative",
+            repliedAtStep,
+            notes: replyInfo.snippet ? `Declined / Opt-out: "${replyInfo.snippet}"` : "Prospect declined or opted out.",
+          },
         });
-        repliedCount++;
+        negativeCount++;
+      } else {
+        // Neutral or Question -> Flag for manual reply
+        await prisma.lead.update({
+          where: { id: lead.id },
+          data: {
+            status: "manual_reply_needed",
+            replySentiment: "neutral",
+            repliedAtStep,
+            notes: replyInfo.snippet ? `Question/Inquiry received: "${replyInfo.snippet}"` : "Manual question/inquiry received.",
+          },
+        });
+        neutralCount++;
       }
+
+      repliedCount++;
     }
 
-    // 4. Time-Based Progression (4-Day Rule: Day 4 -> Day 8 -> Day 12)
+    // 4. Time-Based Progression (2-Day Rule: Day 1 -> Day 3 -> Day 5 -> Day 7)
     const now = new Date();
-    const FOUR_DAYS_MS = 4 * 24 * 60 * 60 * 1000;
+    const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000; // 48 hours
 
     let dueCount = 0;
 
     const remainingLeads = await prisma.lead.findMany({
       where: {
-        status: { notIn: ["replied", "closed"] },
+        status: {
+          notIn: ["demo_pending", "demo_sent", "manual_reply_needed", "replied", "closed", "dead"],
+        },
       },
     });
 
     for (const lead of remainingLeads) {
-      // Stage 1 Follow-up: 4 days after initial email
+      // Stage 1 Follow-up: 2 days after initial email (Day 3 of sequence)
       if (lead.status === "pending") {
         const elapsed = now.getTime() - new Date(lead.dateSent).getTime();
-        if (elapsed >= FOUR_DAYS_MS) {
-          // Auto-generate Follow-up 1 draft
+        if (elapsed >= TWO_DAYS_MS) {
           let followupDraft = lead.followupDraft;
           if (!followupDraft) {
             followupDraft = await generateFollowupDraft({
@@ -180,6 +237,7 @@ export async function POST(request: Request) {
               originalBody: lead.originalBody,
               recipientEmail: lead.email,
               senderName: lead.senderName,
+              region: lead.region,
               stage: 1,
             });
           }
@@ -195,10 +253,10 @@ export async function POST(request: Request) {
         }
       }
 
-      // Stage 2 Follow-up: 4 days after Follow-up 1 sent
+      // Stage 2 Follow-up: 2 days after Follow-up 1 sent (Day 5 of sequence)
       else if (lead.status === "followup_1_sent" && lead.followupSentDate) {
         const elapsed = now.getTime() - new Date(lead.followupSentDate).getTime();
-        if (elapsed >= FOUR_DAYS_MS) {
+        if (elapsed >= TWO_DAYS_MS) {
           let followup2Draft = lead.followup2Draft;
           if (!followup2Draft) {
             followup2Draft = await generateFollowupDraft({
@@ -207,6 +265,7 @@ export async function POST(request: Request) {
               originalBody: lead.originalBody,
               recipientEmail: lead.email,
               senderName: lead.senderName,
+              region: lead.region,
               stage: 2,
             });
           }
@@ -222,10 +281,10 @@ export async function POST(request: Request) {
         }
       }
 
-      // Final Breakup Email: 4 days after Follow-up 2 sent (Day 12 total)
+      // Breakup Email: 2 days after Follow-up 2 sent (Day 7 of sequence)
       else if (lead.status === "followup_2_sent" && lead.followup2SentDate) {
         const elapsed = now.getTime() - new Date(lead.followup2SentDate).getTime();
-        if (elapsed >= FOUR_DAYS_MS) {
+        if (elapsed >= TWO_DAYS_MS) {
           let breakupDraft = lead.breakupDraft;
           if (!breakupDraft) {
             breakupDraft = await generateBreakupDraft({
@@ -233,6 +292,8 @@ export async function POST(request: Request) {
               originalSubject: lead.originalSubject,
               recipientEmail: lead.email,
               senderName: lead.senderName,
+              originalBody: lead.originalBody,
+              region: lead.region,
             });
           }
 
@@ -247,13 +308,13 @@ export async function POST(request: Request) {
         }
       }
 
-      // Dead Lead: 4 days after Break-up email sent without reply (Sequence finished)
+      // Sequence Closed / Dead: 2 days after Break-up email sent without reply
       else if (lead.status === "breakup_sent" && lead.breakupSentDate) {
         const elapsed = now.getTime() - new Date(lead.breakupSentDate).getTime();
-        if (elapsed >= FOUR_DAYS_MS) {
+        if (elapsed >= TWO_DAYS_MS) {
           await prisma.lead.update({
             where: { id: lead.id },
-            data: { status: "dead" },
+            data: { status: "closed" },
           });
         }
       }
@@ -264,7 +325,7 @@ export async function POST(request: Request) {
       data: {
         action: "OUTREACH_SYNCED",
         entityType: "LEAD",
-        details: `Synced Zoho inbox for ${senderEmail} (${newLeadsCount} new leads, ${repliedCount} replies, ${dueCount} follow-ups due)`,
+        details: `Synced Zoho inbox for ${senderEmail} (${newLeadsCount} new leads, ${repliedCount} replies [${positiveCount} positive, ${neutralCount} manual review, ${negativeCount} closed], ${dueCount} follow-ups due)`,
         userId: currentUser.id,
       },
     });

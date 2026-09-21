@@ -13,21 +13,18 @@ import {
   Clock,
   Filter,
 } from "lucide-react";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { formatDateTime } from "@/lib/utils";
 
 export default function ActivityPage() {
+  const { user: currentUser } = useAuth();
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedType, setSelectedType] = useState("ALL");
-  const [currentUser, setCurrentUser] = useState<any>(null);
 
   const fetchActivity = async () => {
     try {
       setLoading(true);
-      const meRes = await fetch("/api/auth/me");
-      const meData = await meRes.json();
-      if (meData.user) setCurrentUser(meData.user);
-
       const res = await fetch(`/api/activity?type=${selectedType}`);
       const data = await res.json();
       if (data.logs) setLogs(data.logs);

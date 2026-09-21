@@ -26,15 +26,17 @@ import {
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
 
+import { useAuth } from "@/components/auth/AuthProvider";
+
 export default function ClientDetailPage() {
   const params = useParams();
   const router = useRouter();
   const clientId = params.id as string;
+  const { user: currentUser } = useAuth();
 
   const [client, setClient] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState<any>(null);
 
   const fetchClient = async () => {
     try {
@@ -42,10 +44,6 @@ export default function ClientDetailPage() {
       const res = await fetch(`/api/clients/${clientId}`);
       const data = await res.json();
       if (data.client) setClient(data.client);
-
-      const meRes = await fetch("/api/auth/me");
-      const meData = await meRes.json();
-      if (meData.user) setCurrentUser(meData.user);
     } catch (err) {
       console.error("Error loading client:", err);
     } finally {
