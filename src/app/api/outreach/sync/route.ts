@@ -225,87 +225,84 @@ export async function POST(request: Request) {
     });
 
     for (const lead of remainingLeads) {
-      // Stage 1 Follow-up: 2 days after initial email (Day 3 of sequence)
-      if (lead.status === "pending") {
+      // Stage 1 Follow-up: Pre-generate draft if missing, and advance status if 2 days elapsed
+      if (lead.status === "pending" || lead.status === "due_for_followup_1" || lead.status === "followup_1_drafted") {
         const elapsed = now.getTime() - new Date(lead.dateSent).getTime();
-        if (elapsed >= TWO_DAYS_MS) {
-          let followupDraft = lead.followupDraft;
-          if (!followupDraft) {
-            followupDraft = await generateFollowupDraft({
-              businessName: lead.businessName,
-              originalSubject: lead.originalSubject,
-              originalBody: lead.originalBody,
-              recipientEmail: lead.email,
-              senderName: lead.senderName,
-              region: lead.region,
-              stage: 1,
-            });
-          }
-
-          await prisma.lead.update({
-            where: { id: lead.id },
-            data: {
-              status: "due_for_followup_1",
-              followupDraft,
-            },
+        let followupDraft = lead.followupDraft;
+        if (!followupDraft) {
+          followupDraft = await generateFollowupDraft({
+            businessName: lead.businessName,
+            originalSubject: lead.originalSubject,
+            originalBody: lead.originalBody,
+            recipientEmail: lead.email,
+            senderName: lead.senderName,
+            region: lead.region,
+            stage: 1,
           });
-          dueCount++;
         }
+
+        const shouldMarkDue = elapsed >= TWO_DAYS_MS;
+        await prisma.lead.update({
+          where: { id: lead.id },
+          data: {
+            status: shouldMarkDue ? "due_for_followup_1" : lead.status,
+            followupDraft,
+          },
+        });
+        if (shouldMarkDue) dueCount++;
       }
 
-      // Stage 2 Follow-up: 2 days after Follow-up 1 sent (Day 5 of sequence)
-      else if (lead.status === "followup_1_sent" && lead.followupSentDate) {
-        const elapsed = now.getTime() - new Date(lead.followupSentDate).getTime();
-        if (elapsed >= TWO_DAYS_MS) {
-          let followup2Draft = lead.followup2Draft;
-          if (!followup2Draft) {
-            followup2Draft = await generateFollowupDraft({
-              businessName: lead.businessName,
-              originalSubject: lead.originalSubject,
-              originalBody: lead.originalBody,
-              recipientEmail: lead.email,
-              senderName: lead.senderName,
-              region: lead.region,
-              stage: 2,
-            });
-          }
-
-          await prisma.lead.update({
-            where: { id: lead.id },
-            data: {
-              status: "due_for_followup_2",
-              followup2Draft,
-            },
+      // Stage 2 Follow-up: Pre-generate draft if missing, and advance status if 2 days elapsed
+      else if (lead.status === "followup_1_sent" || lead.status === "due_for_followup_2" || lead.status === "followup_2_drafted") {
+        const elapsed = lead.followupSentDate ? now.getTime() - new Date(lead.followupSentDate).getTime() : 0;
+        let followup2Draft = lead.followup2Draft;
+        if (!followup2Draft) {
+          followup2Draft = await generateFollowupDraft({
+            businessName: lead.businessName,
+            originalSubject: lead.originalSubject,
+            originalBody: lead.originalBody,
+            recipientEmail: lead.email,
+            senderName: lead.senderName,
+            region: lead.region,
+            stage: 2,
           });
-          dueCount++;
         }
+
+        const shouldMarkDue = elapsed >= TWO_DAYS_MS;
+        await prisma.lead.update({
+          where: { id: lead.id },
+          data: {
+            status: shouldMarkDue ? "due_for_followup_2" : lead.status,
+            followup2Draft,
+          },
+        });
+        if (shouldMarkDue) dueCount++;
       }
 
-      // Breakup Email: 2 days after Follow-up 2 sent (Day 7 of sequence)
-      else if (lead.status === "followup_2_sent" && lead.followup2SentDate) {
-        const elapsed = now.getTime() - new Date(lead.followup2SentDate).getTime();
-        if (elapsed >= TWO_DAYS_MS) {
-          let breakupDraft = lead.breakupDraft;
-          if (!breakupDraft) {
-            breakupDraft = await generateBreakupDraft({
-              businessName: lead.businessName,
-              originalSubject: lead.originalSubject,
-              recipientEmail: lead.email,
-              senderName: lead.senderName,
-              originalBody: lead.originalBody,
-              region: lead.region,
-            });
-          }
-
-          await prisma.lead.update({
-            where: { id: lead.id },
-            data: {
-              status: "due_for_breakup",
-              breakupDraft,
-            },
+      // Breakup Email: Pre-generate draft if missing, and advance status if 2 days elapsed
+      else if (lead.status === "followup_2_sent" || lead.status === "due_for_breakup" || lead.status === "breakup_drafted") {
+        const elapsed = lead.followup2SentDate ? now.getTime() - new Date(lead.followup2SentDate).getTime() : 0;
+        let breakupDraft = lead.breakupDraft;
+        if (!breakupDraft) {
+          breakupDraft = await generateBreakupDraft({
+            businessName: lead.businessName,
+            originalSubject: lead.originalSubject,
+            recipientEmail: lead.email,
+            senderName: lead.senderName,
+            originalBody: lead.originalBody,
+            region: lead.region,
           });
-          dueCount++;
         }
+
+        const shouldMarkDue = elapsed >= TWO_DAYS_MS;
+        await prisma.lead.update({
+          where: { id: lead.id },
+          data: {
+            status: shouldMarkDue ? "due_for_breakup" : lead.status,
+            breakupDraft,
+          },
+        });
+        if (shouldMarkDue) dueCount++;
       }
 
       // Sequence Closed / Dead: 2 days after Break-up email sent without reply

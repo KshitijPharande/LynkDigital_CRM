@@ -795,26 +795,17 @@ export default function OutreachPage() {
               const isExpanded = expandedLeadId === lead.id;
               const isDemoPending = lead.status === "demo_pending";
 
-              const currentDraft =
-                draftEdits[lead.id] !== undefined
-                  ? draftEdits[lead.id]
-                  : isDemoPending
-                  ? lead.demoDraft || ""
-                  : lead.followupDraft ||
-                    lead.followup2Draft ||
-                    lead.breakupDraft ||
-                    lead.demoDraft ||
-                    "";
-
               const isFollowup1Due =
                 lead.status === "due_for_followup_1" ||
                 lead.status === "followup_1_drafted";
               const isFollowup2Due =
                 lead.status === "due_for_followup_2" ||
-                lead.status === "followup_2_drafted";
+                lead.status === "followup_2_drafted" ||
+                lead.status === "followup_1_sent";
               const isBreakupDue =
                 lead.status === "due_for_breakup" ||
-                lead.status === "breakup_drafted";
+                lead.status === "breakup_drafted" ||
+                lead.status === "followup_2_sent";
 
               const activeStage: 1 | 2 | 3 | 4 = isDemoPending
                 ? 4
@@ -823,6 +814,17 @@ export default function OutreachPage() {
                 : isFollowup2Due
                 ? 2
                 : 1;
+
+              const currentDraft =
+                draftEdits[lead.id] !== undefined
+                  ? draftEdits[lead.id]
+                  : isDemoPending
+                  ? lead.demoDraft || ""
+                  : activeStage === 3
+                  ? lead.breakupDraft || ""
+                  : activeStage === 2
+                  ? lead.followup2Draft || ""
+                  : lead.followupDraft || "";
 
               const hasUnresolvedPlaceholders =
                 Boolean(currentDraft) && /\{\{[^{}]+\}\}/.test(currentDraft);
