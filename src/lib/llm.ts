@@ -130,45 +130,49 @@ export async function generateFollowupDraft(params: {
   const senderName = params.senderName || "Kshitij";
   const stage = params.stage || 1;
 
-  const { name, greeting, town, service, verifiedPainPoint, painPointDetail } = extractEmailContext(
+  const { greeting, town, service, painPointDetail } = extractEmailContext(
     params.businessName,
     params.originalSubject,
     params.originalBody,
     params.region
   );
 
+  const plainBody = (params.originalBody || "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&[a-z]+;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
   const model = process.env.GROQ_MODEL || "qwen/qwen3.8-27b";
 
   if (stage === 1) {
-    // Stage 1 (Day 3) - Google visibility angle
-    const prompt = `You are ${senderName} from LynkDigital. You are writing a short Follow-Up #1 email to a prospective trade business in New Zealand (sent 2 days after the first email, on the same email thread Re:).
+    // Stage 1 (Day 3) - Google visibility & Concept Preview angle
+    const prompt = `You are ${senderName} from LynkDigital (a boutique web design & growth agency for NZ trade & service businesses).
+You are writing Follow-Up #1 (sent 2 days after the first email, replying directly on the same email thread Re:).
 
-LEAD DATA (Use ONLY these facts):
-- Business Name: ${params.businessName}
-- Contact / Greeting: ${greeting}
+PROSPECT DETAILS:
+- Business / Contact: ${params.businessName}
+- Lead Email: ${params.recipientEmail}
 - Town / Area: ${town}
 - Service / Trade: ${service}
-- Verified Pain Point from Email 1: ${verifiedPainPoint}
-- Original Pitch:
+
+FIRST EMAIL WE SENT THEM:
 """
-${params.originalBody}
+${plainBody}
 """
 
-FEW-SHOT TEMPLATE EXAMPLE (Adapt this naturally to the lead; do NOT copy word for word):
-"""
-${greeting},
-Quick follow up on my last email. When someone in ${town} searches for ${service}, businesses with a proper website can show up ahead of ones that only have a Facebook page or an outdated site.
-A simple site with your services and project photos could put you in front of those people. Happy to send you a free mockup link if you're curious.
+GOAL & INSTRUCTIONS:
+- Write a short, highly personalized 2-4 sentence follow-up email.
+- Read the FIRST EMAIL above and directly pull out the SPECIFIC observations, pain points, or compliments mentioned (e.g. website issues, missing mobile quote button, WordPress favicon, years in business, photo gallery, town/service).
+- DO NOT copy a generic boilerplate template. Each sentence must feel genuinely written by a real human continuing the conversation from Email 1.
+- Offer to send over a free concept mockup link or a quick video walkthrough if they would like to take a look, with zero pressure.
+- NO em-dashes (— or –). Use normal commas or periods only.
+- Greet with "${greeting},"
+- Sign off:
 Cheers,
 ${senderName}
-"""
 
-RULES:
-- NEVER use em-dashes (— or –). Use normal commas or periods only.
-- Never state any fact about the business that isn't in the lead record.
-- Use "${greeting}," as the opener.
-- Short, warm, low-pressure Kiwi tone.
-- Output PLAIN TEXT ONLY (no subject line, no markdown, no quotes).`;
+Output ONLY the plain text email body (no subject line, no quotes, no markdown).`;
 
     if (apiKey) {
       try {
@@ -184,11 +188,11 @@ RULES:
               {
                 role: "system",
                 content:
-                  "You write concise, warm, authentic follow-up emails for a web design studio. You never use em-dashes. You adapt the few-shot template smoothly without making up facts.",
+                  "You write authentic, hyper-personalized, concise sales follow-up emails for a web designer. You never output boilerplate formulas or em-dashes.",
               },
               { role: "user", content: prompt },
             ],
-            temperature: 0.65,
+            temperature: 0.8,
             max_tokens: 250,
           }),
         });
@@ -207,35 +211,32 @@ RULES:
     return `${greeting},\n\nQuick follow up on my last email. When someone in ${town} searches for ${service}, businesses with a proper website can show up ahead of ones that only have a Facebook page or an outdated site.\n\nA simple site with your services and project photos could put you in front of those people. Happy to send you a free mockup link if you're curious.\n\nCheers,\n${senderName}`;
   }
 
-  // Stage 2 (Day 5) - Trust and proof angle
-  const prompt = `You are ${senderName} from LynkDigital. You are writing Follow-Up #2 (sent on day 5, on the same thread Re:).
+  // Stage 2 (Day 5) - Mobile Conversion, Trust & Proof angle
+  const prompt = `You are ${senderName} from LynkDigital.
+You are writing Follow-Up #2 (sent on day 5, on the same thread Re:).
 
-LEAD DATA:
-- Business Name: ${params.businessName}
-- Contact / Greeting: ${greeting}
+PROSPECT DETAILS:
+- Business / Contact: ${params.businessName}
+- Lead Email: ${params.recipientEmail}
 - Town / Area: ${town}
 - Service / Trade: ${service}
-- Verified Pain Point from Email 1: ${verifiedPainPoint}
-- Original Pitch:
+
+FIRST EMAIL WE SENT THEM:
 """
-${params.originalBody}
+${plainBody}
 """
 
-FEW-SHOT TEMPLATE EXAMPLE (Adapt this naturally; do NOT copy word for word):
-"""
-${greeting},
-I really liked your recent project work, but right now ${painPointDetail} makes it harder for new customers to see that proof.
-On a clean site it would sit in one place next to your reviews and a "get a free quote" button. Want me to send a free mockup link? No pressure either way.
+GOAL & INSTRUCTIONS:
+- Write a short, distinct 2-3 sentence Follow-Up #2 focused on trust, portfolio proof, and making it effortless for mobile visitors to request a quote.
+- Reference a specific detail from Email 1 (e.g. their project quality, years in business, photo gallery, or reputation).
+- Ask if they would want to check out a quick mockup link. Keep it warm and low-pressure ("No worries if you're all sorted").
+- NO em-dashes (— or –).
+- Greet with "${greeting},"
+- Sign off:
 Cheers,
 ${senderName}
-"""
 
-RULES:
-- NEVER use em-dashes (— or –).
-- Never claim a mockup exists yet or claim unverified facts.
-- Use "${greeting}," as the opener.
-- Short (2-3 sentences max), warm, relaxed, low pressure.
-- Output PLAIN TEXT ONLY (no subject, no markdown).`;
+Output ONLY the plain text email body (no subject line, no markdown).`;
 
   if (apiKey) {
     try {
@@ -251,11 +252,11 @@ RULES:
             {
               role: "system",
               content:
-                "You write short, respectful follow-up emails focused on social proof and trust. No em-dashes. No fluff.",
+                "You write short, respectful, authentic follow-up emails focused on social proof and mobile quote conversion. No boilerplate or em-dashes.",
             },
             { role: "user", content: prompt },
           ],
-          temperature: 0.65,
+          temperature: 0.8,
           max_tokens: 250,
         }),
       });
@@ -287,37 +288,41 @@ export async function generateBreakupDraft(params: {
 }): Promise<string> {
   const apiKey = process.env.GROQ_API_KEY;
   const senderName = params.senderName || "Kshitij";
-  const { greeting } = extractEmailContext(
+  const { greeting, town } = extractEmailContext(
     params.businessName,
     params.originalSubject,
     params.originalBody || "",
     params.region
   );
 
-  const fallback = `${greeting},\n\nI'll stop chasing after this one. If a better website ever becomes something you want, just reply here and I'll happily put a mockup together.\n\nWishing you a busy season,\n${senderName}\nLynkDigital`;
+  const plainBody = (params.originalBody || "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&[a-z]+;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const fallback = `${greeting},\n\nI'll stop chasing after this one. If a better website ever becomes something you want down the road, just reply here and I'll happily put a mockup together.\n\nWishing you a busy season,\n${senderName}\nLynkDigital`;
 
   if (!apiKey) return fallback;
 
   const prompt = `You are ${senderName} from LynkDigital.
-Write a polite, warm, final "Breakup" email (Day 7, thread Re:) to ${params.businessName}.
+Write a polite, warm, final "Breakup" email (Day 7, replying on thread Re:) to ${params.businessName}.
 
-FEW-SHOT TEMPLATE EXAMPLE:
+FIRST EMAIL WE SENT:
 """
-${greeting},
-I'll stop chasing after this one. If a better website ever becomes something you want, just reply here and I'll happily put a mockup together.
-Wishing you a busy season,
-${senderName}
-LynkDigital
+${plainBody}
 """
 
 RULES:
 - NO EM-DASHES (— or –).
-- Keep it under 3 sentences. Polite takeaway.
+- Keep it under 3 sentences. Clean, polite takeaway with no guilt or hard sell.
+- Greet with "${greeting},"
 - Sign-off:
 Wishing you a busy season,
 ${senderName}
 LynkDigital
-- Plain text only.`;
+
+Output ONLY plain text.`;
 
   try {
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -329,10 +334,10 @@ LynkDigital
       body: JSON.stringify({
         model: process.env.GROQ_MODEL || "qwen/qwen3.8-27b",
         messages: [
-          { role: "system", content: "You write polite breakup emails with no em-dashes." },
+          { role: "system", content: "You write polite, concise breakup sales emails with no em-dashes." },
           { role: "user", content: prompt },
         ],
-        temperature: 0.6,
+        temperature: 0.7,
         max_tokens: 200,
       }),
     });
@@ -371,6 +376,12 @@ export async function generateDemoDraft(params: {
     params.region
   );
 
+  const plainBody = (params.originalBody || "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&[a-z]+;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
   const mockupPlaceholder = params.mockupUrl && params.mockupUrl.trim() !== ""
     ? params.mockupUrl.trim()
     : "{{MOCKUP_LINK}}";
@@ -380,30 +391,27 @@ export async function generateDemoDraft(params: {
   if (!apiKey) return fallback;
 
   const prompt = `You are ${senderName} from LynkDigital.
-The lead has replied positively asking to see a concept/mockup.
+The lead replied positively asking to see the mockup / concept.
 Write the Demo delivery email (in the same thread Re:).
 
-LEAD DATA:
+PROSPECT DETAILS:
 - Business: ${params.businessName}
 - Opener: ${greeting}
-- Verified pain point from initial email: ${verifiedPainPoint} (${painPointDetail})
-
-FEW-SHOT TEMPLATE EXAMPLE (Adapt smoothly; leave {{MOCKUP_LINK}} exactly as shown):
+- First Email Pitch:
 """
-${greeting},
-Thanks for getting back to me. As promised, here's a free mockup of a cleaner version of your site: {{MOCKUP_LINK}}
-It fixes ${painPointDetail}. Have a look on your phone too, since that's where most of your customers will be searching from.
-If you like it, I can help you get it live. If not, no problem at all.
-Cheers,
-${senderName}
-LynkDigital
+${plainBody}
 """
 
 CRITICAL RULES:
-- If the mockup link is not provided yet, keep "{{MOCKUP_LINK}}" explicitly inside the text as a placeholder.
+- Include the mockup link exactly as ${mockupPlaceholder}
 - NO EM-DASHES (— or –).
-- Never claim unverified facts.
-- Plain text only.`;
+- Keep it concise, friendly, and highlight checking it on mobile.
+- Sign off:
+Cheers,
+${senderName}
+LynkDigital
+
+Output ONLY plain text.`;
 
   try {
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
